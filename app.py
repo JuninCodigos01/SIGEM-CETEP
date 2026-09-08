@@ -10,9 +10,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# -----------------------------------------------------------------------------
-# 1. BANCO DE DADOS (SQLITE) - PERSISTÊNCIA REAL DE DADOS
-# -----------------------------------------------------------------------------
+# 1. BANCO DE DADOS
 
 def conectar_bd():
     conn = sqlite3.connect("escola.db", check_same_thread=False)
@@ -22,10 +20,8 @@ def inicializar_bd():
     conn = conectar_bd()
     cursor = conn.cursor()
     
-    # Enable foreign keys in SQLite
     cursor.execute("PRAGMA foreign_keys = ON;")
 
-    # 1. Tabela Curso
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Curso (
             id_curso INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -34,7 +30,6 @@ def inicializar_bd():
         )
     """)
 
-    # 2. Tabela Turma
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Turma (
             id_turma INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -46,7 +41,6 @@ def inicializar_bd():
         )
     """)
 
-    # 3. Tabela Usuario
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Usuario (
             id_usuario INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -57,7 +51,6 @@ def inicializar_bd():
         )
     """)
 
-    # 4. Tabela Arquivo
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Arquivo (
             id_arquivo INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -68,7 +61,6 @@ def inicializar_bd():
         )
     """)
 
-    # 5. Tabela Solicitacao
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Solicitacao (
             id_solicitacao INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -86,7 +78,6 @@ def inicializar_bd():
         )
     """)
 
-    # 6. Tabela Disciplina
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Disciplina (
             id_disciplina INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -100,7 +91,6 @@ def inicializar_bd():
         )
     """)
 
-    # 7. Tabela email
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS email (
             id_email INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -115,7 +105,6 @@ def inicializar_bd():
         )
     """)
 
-    # 8. Tabela Historico_Status
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Historico_Status (
             id_historico INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -124,7 +113,6 @@ def inicializar_bd():
         )
     """)
 
-    # 9. Tabela Insumo
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Insumo (
             id_insumo INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -136,7 +124,6 @@ def inicializar_bd():
         )
     """)
 
-    # 10. Tabela Mov_Estoque
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Mov_Estoque (
             id_movimentacao INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -151,7 +138,6 @@ def inicializar_bd():
         )
     """)
 
-    # Tabelas legadas mantidas para autenticação e reservas
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS usuarios (
             login TEXT PRIMARY KEY,
@@ -177,7 +163,7 @@ def inicializar_bd():
         )
     """)
 
-    # Carga inicial de dados
+    # Dados dos usuários
     usuarios_padrao = [
         ("Nicolas A", "1234", "Administrador", "Nicolau", "nicolau@gmail.com"),
         ("J Pedro", "1234", "Administrador", "Joao Pedro", "jpedro@gmail.com"),
@@ -192,7 +178,6 @@ def inicializar_bd():
     conn.commit()
     conn.close()
 
-# Inicializa o banco de dados ao abrir a aplicação
 inicializar_bd()
 
 ESTOQUE_EQUIPAMENTOS = {
@@ -206,7 +191,6 @@ ESTOQUE_EQUIPAMENTOS = {
     "Cones de Treinamento": 15
 }
 
-# Inicialização do Estado de Login na Sessão do Navegador
 if "logado" not in st.session_state:
     st.session_state.logado = False
     st.session_state.usuario_atual = None
@@ -214,9 +198,7 @@ if "logado" not in st.session_state:
     st.session_state.nome_usuario = None
     st.session_state.email_usuario = None
 
-# -----------------------------------------------------------------------------
 # 2. TELA DE LOGIN
-# -----------------------------------------------------------------------------
 
 def tela_login():
     st.title("🏫 Sistema Integrado de Gestão e Mecanografia (SIGEM)")
@@ -245,9 +227,7 @@ def tela_login():
             else:
                 st.error("Usuário ou senha incorretos.")
 
-# -----------------------------------------------------------------------------
 # 3. SISTEMA PRINCIPAL
-# -----------------------------------------------------------------------------
 
 def sistema_principal():
     st.sidebar.title("👤 Perfil do Usuário")
@@ -267,9 +247,7 @@ def sistema_principal():
         
     guias = st.tabs(abas)
 
-    # -------------------------------------------------------------------------
     # ABA 1: SOLICITAR IMPRESSÃO
-    # -------------------------------------------------------------------------
     with guias[0]:
         st.header("🖨️ Solicitação de Impressão (Mecanografia)")
         
@@ -331,9 +309,7 @@ def sistema_principal():
                         if obs_impressao:
                             st.write(f"📝 **Observação:** {obs_impressao}")
 
-    # -------------------------------------------------------------------------
     # ABA 2: RESERVAR RECURSOS
-    # -------------------------------------------------------------------------
     with guias[1]:
         st.header("Realizar Reserva de Recursos")
         
@@ -399,9 +375,7 @@ def sistema_principal():
 
                 st.success("Reserva enviada para análise e gravada com sucesso!")
 
-    # -------------------------------------------------------------------------
     # ABA 3: PAINEL DE SOLICITAÇÕES
-    # -------------------------------------------------------------------------
     with guias[2]:
         st.header("📋 Histórico de Pedidos e Reservas")
         
@@ -436,9 +410,7 @@ def sistema_principal():
             
         conn.close()
 
-    # -------------------------------------------------------------------------
     # ABA 4: PAINEL DA COORDENAÇÃO / MECANOGRAFIA
-    # -------------------------------------------------------------------------
     if st.session_state.nivel_acesso in ["Administrador", "Coordenação"]:
         with guias[3]:
             st.header("⚙️ Controle de Mecanografia e Gestão de Pedidos")
@@ -446,14 +418,14 @@ def sistema_principal():
             conn = conectar_bd()
             cursor = conn.cursor()
             
-            # --- SEÇÃO DE ALERTAS DE ESTOQUE DE INSUMOS ---
+            # SEÇÃO DE ALERTAS DE ESTOQUE DE INSUMOS 
             cursor.execute("SELECT descricao, qtd_estoque, qtd_minima, unidade FROM insumos WHERE qtd_estoque <= qtd_minima")
             alertas = cursor.fetchall()
             if alertas:
                 for item in alertas:
                     st.warning(f"⚠️ **Alerta de Insumo Crítico:** O item **{item[0]}** está em nível crítico! Estoque Atual: {item[1]} {item[3]} (Mínimo: {item[2]} {item[3]}).")
 
-            # --- SEÇÃO 1: SOLICITAÇÕES DE IMPRESSÃO ---
+            # SEÇÃO 1: SOLICITAÇÕES DE IMPRESSÃO
             st.subheader("🖨️ Fila de Impressão Pendente")
             cursor.execute("SELECT * FROM impressoes WHERE status = 'Pendente'")
             impressoes_pendentes = cursor.fetchall()
@@ -470,7 +442,6 @@ def sistema_principal():
                         
                         col1, col2 = st.columns(2)
                         if col1.button("✅ Concluir/Aprovar e Dar Baixa de Papel", key=f"ap_imp_{imp_id}"):
-                            # RN04: Baixa Automática de Insumos (Deduz o papel do estoque)
                             cursor.execute("UPDATE insumos SET qtd_estoque = qtd_estoque - ? WHERE descricao LIKE '%Papel A4%'", (copias,))
                             cursor.execute("UPDATE impressoes SET status = 'Aprovada / Concluída' WHERE id = ?", (imp_id,))
                             conn.commit()
@@ -486,7 +457,7 @@ def sistema_principal():
 
             st.divider()
 
-            # --- SEÇÃO 2: FILA DE RESERVAS DE EQUIPAMENTOS E SALAS ---
+            # SEÇÃO 2: FILA DE RESERVAS DE EQUIPAMENTOS E SALAS
             st.subheader("📅 Fila de Reservas de Recursos e Espaços Pendentes")
             cursor.execute("SELECT * FROM reservas WHERE status = 'Pendente'")
             reservas_pendentes = cursor.fetchall()
@@ -519,7 +490,7 @@ def sistema_principal():
 
             st.divider()
             
-            # --- SEÇÃO 3: GESTÃO DO ESTOQUE DE INSUMOS DE IMPRESSÃO ---
+            # SEÇÃO 3: GESTÃO DO ESTOQUE DE INSUMOS DE IMPRESSÃO
             st.subheader("📦 Estoque de Insumos de Reprografia e Impressão (Mecanografia)")
             df_insumos = pd.read_sql_query("SELECT codigo AS 'Código', descricao AS 'Item/Insumo', qtd_estoque AS 'Qtd Atual', qtd_minima AS 'Qtd Mínima', unidade AS 'Unidade' FROM insumos", conn)
             st.dataframe(df_insumos, use_container_width=True)
@@ -530,9 +501,7 @@ def sistema_principal():
 
             conn.close()
 
-# -----------------------------------------------------------------------------
 # 4. EXECUÇÃO DO FLUXO
-# -----------------------------------------------------------------------------
 if not st.session_state.logado:
     tela_login()
 else:
