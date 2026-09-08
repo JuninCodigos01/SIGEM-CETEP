@@ -22,7 +22,136 @@ def inicializar_bd():
     conn = conectar_bd()
     cursor = conn.cursor()
     
-    # Tabela de Usuários
+    # Enable foreign keys in SQLite
+    cursor.execute("PRAGMA foreign_keys = ON;")
+
+    # 1. Tabela Curso
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS Curso (
+            id_curso INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome VARCHAR(100),
+            descricao VARCHAR(100)
+        )
+    """)
+
+    # 2. Tabela Turma
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS Turma (
+            id_turma INTEGER PRIMARY KEY AUTOINCREMENT,
+            Curso_id_curso INTEGER,
+            nome VARCHAR(100),
+            ano INTEGER,
+            turno VARCHAR(20),
+            FOREIGN KEY (Curso_id_curso) REFERENCES Curso(id_curso)
+        )
+    """)
+
+    # 3. Tabela Usuario
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS Usuario (
+            id_usuario INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome VARCHAR(30),
+            email VARCHAR(100),
+            telefone VARCHAR(20),
+            tipo_usuario VARCHAR(30)
+        )
+    """)
+
+    # 4. Tabela Arquivo
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS Arquivo (
+            id_arquivo INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome_arquivo VARCHAR(255),
+            tipo_arquivo VARCHAR(50),
+            local_arquivo BLOB,
+            data_recebimento DATETIME
+        )
+    """)
+
+    # 5. Tabela Solicitacao
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS Solicitacao (
+            id_solicitacao INTEGER PRIMARY KEY AUTOINCREMENT,
+            Arquivo_id_arquivo INTEGER,
+            Usuario_id_usuario INTEGER,
+            tipo_origem VARCHAR(20),
+            qtd INTEGER,
+            tipo_impressao VARCHAR(30),
+            acabamento VARCHAR(100),
+            observacao INTEGER,
+            data_solicitacao DATETIME,
+            status_atual VARCHAR(30),
+            FOREIGN KEY (Arquivo_id_arquivo) REFERENCES Arquivo(id_arquivo),
+            FOREIGN KEY (Usuario_id_usuario) REFERENCES Usuario(id_usuario)
+        )
+    """)
+
+    # 6. Tabela Disciplina
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS Disciplina (
+            id_disciplina INTEGER PRIMARY KEY AUTOINCREMENT,
+            Curso_id_curso INTEGER,
+            Solicitacao_id_solicitacao INTEGER,
+            Solicitacao_Arquivo_id_arquivo INTEGER,
+            Solicitacao_Usuario_id_usuario INTEGER,
+            nome VARCHAR(100),
+            FOREIGN KEY (Curso_id_curso) REFERENCES Curso(id_curso),
+            FOREIGN KEY (Solicitacao_id_solicitacao) REFERENCES Solicitacao(id_solicitacao)
+        )
+    """)
+
+    # 7. Tabela email
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS email (
+            id_email INTEGER PRIMARY KEY AUTOINCREMENT,
+            Solicitacao_id_solicitacao INTEGER,
+            Solicitacao_Arquivo_id_arquivo INTEGER,
+            Solicitacao_Usuario_id_usuario INTEGER,
+            email_remetente VARCHAR(150),
+            assunto VARCHAR(255),
+            data_recebimento DATETIME,
+            identificador_email VARCHAR(255),
+            FOREIGN KEY (Solicitacao_id_solicitacao) REFERENCES Solicitacao(id_solicitacao)
+        )
+    """)
+
+    # 8. Tabela Historico_Status
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS Historico_Status (
+            id_historico INTEGER PRIMARY KEY AUTOINCREMENT,
+            Solicitacao_id_solicitacao INTEGER,
+            FOREIGN KEY (Solicitacao_id_solicitacao) REFERENCES Solicitacao(id_solicitacao)
+        )
+    """)
+
+    # 9. Tabela Insumo
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS Insumo (
+            id_insumo INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome VARCHAR(100),
+            tipo VARCHAR(50),
+            unidade_media VARCHAR(20),
+            qtd_estoque DECIMAL(10,2),
+            estoque_minimo DECIMAL(10,2)
+        )
+    """)
+
+    # 10. Tabela Mov_Estoque
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS Mov_Estoque (
+            id_movimentacao INTEGER PRIMARY KEY AUTOINCREMENT,
+            Usuario_id_usuario INTEGER,
+            Insumo_id_insumo INTEGER,
+            qtd DECIMAL(10,2),
+            tipo_movimentacao VARCHAR(10),
+            data_movimentacao DATETIME,
+            observacao VARCHAR(255),
+            FOREIGN KEY (Usuario_id_usuario) REFERENCES Usuario(id_usuario),
+            FOREIGN KEY (Insumo_id_insumo) REFERENCES Insumo(id_insumo)
+        )
+    """)
+
+    # Tabelas legadas mantidas para autenticação e reservas
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS usuarios (
             login TEXT PRIMARY KEY,
@@ -33,7 +162,6 @@ def inicializar_bd():
         )
     """)
     
-    # Tabela de Reservas
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS reservas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -48,34 +176,8 @@ def inicializar_bd():
             status TEXT
         )
     """)
-    
-    # Tabela de Impressões
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS impressoes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            solicitante TEXT,
-            email TEXT,
-            tipo_documento TEXT,
-            data_necessidade TEXT,
-            copias INTEGER,
-            cor TEXT,
-            observacao TEXT,
-            status TEXT
-        )
-    """)
 
-    # Tabela de Estoque de Insumos da Mecanografia
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS insumos (
-            codigo INTEGER PRIMARY KEY AUTOINCREMENT,
-            descricao TEXT UNIQUE,
-            qtd_estoque INTEGER,
-            qtd_minima INTEGER,
-            unidade TEXT
-        )
-    """)
-    
-    # Inserir usuários padrão caso não existam
+    # Carga inicial de dados
     usuarios_padrao = [
         ("Nicolas A", "1234", "Administrador", "Nicolau", "nicolau@gmail.com"),
         ("J Pedro", "1234", "Administrador", "Joao Pedro", "jpedro@gmail.com"),
@@ -86,14 +188,6 @@ def inicializar_bd():
         ("Coordenação", "1234", "Coordenação", "Coordenador(a) Genérico(a)", "coordenacao@gmail.com")
     ]
     cursor.executemany("INSERT OR IGNORE INTO usuarios VALUES (?,?,?,?,?)", usuarios_padrao)
-
-    # Inserir insumos padrão de mecanografia caso não existam
-    insumos_padrao = [
-        ("Papel A4 (Folhas)", 5000, 1000, "Unidades"),
-        ("Toner HP Preto", 10, 2, "Unidades"),
-        ("Toner HP Colorido", 5, 1, "Unidades")
-    ]
-    cursor.executemany("INSERT OR IGNORE INTO insumos (descricao, qtd_estoque, qtd_minima, unidade) VALUES (?,?,?,?)", insumos_padrao)
 
     conn.commit()
     conn.close()
