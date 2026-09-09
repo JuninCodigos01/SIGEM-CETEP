@@ -195,13 +195,22 @@ def inicializar_bd():
 
     # Insumos Padrão
     insumos_padrao = [
-    
+        ("Papel A4 (Folhas)", 5000, 1000, "Unidades"),
+        ("Toner HP Preto", 10, 2, "Unidades"),
+        ("Toner HP Colorido", 5, 1, "Unidades")
     ]
     cursor.executemany("INSERT OR IGNORE INTO insumos (descricao, qtd_estoque, qtd_minima, unidade) VALUES (?,?,?,?)", insumos_padrao)
 
     # Equipamentos Padrão
     equipamentos_padrao = [
-    
+        ("Datashow", "Equipamento Tecnológico", 5),
+        ("Controle da TV", "Equipamento Tecnológico", 4),
+        ("Caixa de Som", "Equipamento Tecnológico", 3),
+        ("Microfone", "Equipamento Tecnológico", 4),
+        ("Bolas de Futebol", "Equipamento de Educação Física", 10),
+        ("Bolas de Vôlei", "Equipamento de Educação Física", 8),
+        ("Kits de Coletes", "Equipamento de Educação Física", 5),
+        ("Cones de Treinamento", "Equipamento de Educação Física", 15)
     ]
     cursor.executemany("INSERT OR IGNORE INTO equipamentos (nome, categoria, qtd_total) VALUES (?,?,?)", equipamentos_padrao)
 
@@ -635,11 +644,13 @@ def sistema_principal():
                             st.success(f"Uso do recurso **{recurso}** finalizado e liberado com sucesso!")
                             st.rerun()
             else:
-                st.info("Nenhum recurso ou laboratório está atualmente marcado como 'Aprovado/Em Uso'.")
+                st.info("Nenum recurso ou laboratório está atualmente marcado como 'Aprovado/Em Uso'.")
 
             st.divider()
 
-            # REPOSIÇÃO, CADASTRO E REMOÇÃO DE ESTOQUE (MECANOGRAFIA)
+            # -----------------------------------------------------------------
+            # REPOSIÇÃO, RETIRADA, CADASTRO E REMOÇÃO DE ESTOQUE (MECANOGRAFIA)
+            # -----------------------------------------------------------------
             st.subheader("📦 Estoque de Insumos da Mecanografia")
             df_insumos = pd.read_sql_query("SELECT codigo AS 'Código', descricao AS 'Item', qtd_estoque AS 'Qtd Atual', qtd_minima AS 'Qtd Mínima', unidade AS 'Unidade' FROM insumos", conn)
             st.dataframe(df_insumos, use_container_width=True)
@@ -651,14 +662,33 @@ def sistema_principal():
                     lista_ins = cursor.fetchall()
                     if lista_ins:
                         opcoes_ins = {desc: cod for cod, desc in lista_ins}
-                        item_sel = st.selectbox("Insumo:", list(opcoes_ins.keys()))
-                        qtd_add = st.number_input("Qtd Recebida:", min_value=1, value=500)
+                        item_sel = st.selectbox("Insumo:", list(opcoes_ins.keys()), key="add_ins_sel")
+                        qtd_add = st.number_input("Qtd Recebida:", min_value=1, value=500, key="add_ins_qtd")
                         
                         if st.button("Confirmar Entrada de Insumo"):
                             cursor.execute("UPDATE insumos SET qtd_estoque = qtd_estoque + ? WHERE codigo = ?", (qtd_add, opcoes_ins[item_sel]))
                             conn.commit()
                             st.success(f"Adicionadas {qtd_add} unidades de {item_sel}!")
                             st.rerun()
+
+                with st.expander("➖ Retirar Unidades do Estoque"):
+                    cursor.execute("SELECT codigo, descricao, qtd_estoque FROM insumos")
+                    lista_ins_sub = cursor.fetchall()
+                    if lista_ins_sub:
+                        dict_sub_ins = {f"{desc} (Atual: {qtd})": (cod, qtd, desc) for cod, desc, qtd in lista_ins_sub}
+                        item_sub_sel = st.selectbox("Selecione o Insumo:", list(dict_sub_ins.keys()), key="sub_ins_sel")
+                        cod_ins, max_qtd_ins, desc_ins = dict_sub_ins[item_sub_sel]
+                        
+                        qtd_sub = st.number_input("Quantidade a Retirar:", min_value=1, max_value=max(1, max_qtd_ins), value=1, key="sub_ins_qtd")
+                        
+                        if st.button("Confirmar Retirada de Unidades"):
+                            if max_qtd_ins < qtd_sub:
+                                st.error("❌ Quantidade a retirar maior do que o estoque atual.")
+                            else:
+                                cursor.execute("UPDATE insumos SET qtd_estoque = MAX(0, qtd_estoque - ?) WHERE codigo = ?", (qtd_sub, cod_ins))
+                                conn.commit()
+                                st.warning(f"Retiradas {qtd_sub} unidade(s) de {desc_ins}!")
+                                st.rerun()
 
             with col_ins2:
                 with st.expander("🆕 Cadastrar Novo Insumo"):
@@ -678,12 +708,12 @@ def sistema_principal():
                                 st.error("Produto já existente.")
 
             with col_ins3:
-                with st.expander("🗑️ Remover Insumo"):
+                with st.expander("🗑️ Excluir Insumo Permanentemente"):
                     cursor.execute("SELECT codigo, descricao FROM insumos")
                     insumos_para_remover = cursor.fetchall()
                     if insumos_para_remover:
                         dict_rem_ins = {desc: cod for cod, desc in insumos_para_remover}
-                        item_rem = st.selectbox("Selecione para Remover:", list(dict_rem_ins.keys()))
+                        item_rem = st.selectbox("Selecione para Remover do Sistema:", list(dict_rem_ins.keys()), key="del_ins_sel")
                         
                         if st.button("❌ Confirmar Exclusão do Insumo", type="primary"):
                             cursor.execute("DELETE FROM insumos WHERE codigo = ?", (dict_rem_ins[item_rem],))
@@ -693,7 +723,9 @@ def sistema_principal():
 
             st.divider()
 
+            # -----------------------------------------------------------------
             # GESTÃO INTERATIVA DE EQUIPAMENTOS E MATERIAIS ESPORTIVOS
+            # -----------------------------------------------------------------
             st.subheader("⚽ Gestão Interativa de Equipamentos (Tecnológicos & Educação Física)")
             
             df_eq = pd.read_sql_query("SELECT id AS 'ID', nome AS 'Equipamento', categoria AS 'Categoria', qtd_total AS 'Quantidade Disponível' FROM equipamentos", conn)
@@ -715,8 +747,7 @@ def sistema_principal():
                             st.success(f"Adicionadas {qtd_add_eq} unidade(s) a {eq_sel}!")
                             st.rerun()
 
-            with col_eq2:
-                with st.expander("🗑️ Dar Baixa (Danificado / Perdido)"):
+                with st.expander("➖ Dar Baixa em Unidades (Danificado/Perdido)"):
                     cursor.execute("SELECT id, nome, qtd_total FROM equipamentos")
                     eqs_baixa = cursor.fetchall()
                     if eqs_baixa:
@@ -727,7 +758,7 @@ def sistema_principal():
                         qtd_sub_eq = st.number_input("Qtd Danificada/Perdida:", min_value=1, max_value=max(1, max_disp), value=1)
                         motivo_baixa = st.text_input("Motivo (Ex: Bola furou, Cone quebrou, etc.):")
                         
-                        if st.button("Confirmar Baixa/Descarte"):
+                        if st.button("Confirmar Baixa de Unidades"):
                             if max_disp < qtd_sub_eq:
                                 st.error("❌ Não é possível retirar mais do que a quantidade disponível.")
                             else:
@@ -736,7 +767,7 @@ def sistema_principal():
                                 st.warning(f"Baixa registrada: -{qtd_sub_eq} unidade(s) de {nome_item}. Motivo: {motivo_baixa}")
                                 st.rerun()
 
-            with col_eq3:
+            with col_eq2:
                 with st.expander("🆕 Cadastrar Novo Equipamento"):
                     novo_eq_nome = st.text_input("Nome do Equipamento:")
                     novo_eq_cat = st.selectbox("Categoria:", ["Equipamento Tecnológico", "Equipamento de Educação Física"])
@@ -751,6 +782,21 @@ def sistema_principal():
                                 st.rerun()
                             except sqlite3.IntegrityError:
                                 st.error("Equipamento já cadastrado.")
+
+            with col_eq3:
+                with st.expander("🗑️ Excluir Equipamento Permanentemente"):
+                    cursor.execute("SELECT id, nome, categoria FROM equipamentos")
+                    eqs_para_deletar = cursor.fetchall()
+                    if eqs_para_deletar:
+                        dict_del_eq = {f"{nome} ({cat})": (eq_id, nome) for eq_id, nome, cat in eqs_para_deletar}
+                        item_del_sel = st.selectbox("Selecione o Item para Excluir do Sistema:", list(dict_del_eq.keys()), key="del_eq_sel")
+                        id_eq_del, nome_eq_del = dict_del_eq[item_del_sel]
+                        
+                        if st.button("❌ Confirmar Exclusão Definitiva", type="primary"):
+                            cursor.execute("DELETE FROM equipamentos WHERE id = ?", (id_eq_del,))
+                            conn.commit()
+                            st.warning(f"O equipamento **{nome_eq_del}** foi excluído permanentemente do banco de dados!")
+                            st.rerun()
 
             conn.close()
 
