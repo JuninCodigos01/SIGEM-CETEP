@@ -178,7 +178,6 @@ def inicializar_bd():
         )
     """)
 
-    # Nova tabela para Equipamentos Tecnológicos e de Ed. Física
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS equipamentos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -238,7 +237,6 @@ if "logado" not in st.session_state:
 # -----------------------------------------------------------------------------
 
 def obter_estoque_equipamentos():
-    """Retorna um dicionário {nome_equipamento: qtd_total} vindo do Banco de Dados."""
     conn = conectar_bd()
     cursor = conn.cursor()
     cursor.execute("SELECT nome, qtd_total FROM equipamentos")
@@ -247,30 +245,29 @@ def obter_estoque_equipamentos():
     return {row[0]: row[1] for row in dados}
 
 def verificar_conflito_reserva(recurso, data_str, h_inicio, h_fim):
-    """Verifica se uma sala/laboratório já está reservada no mesmo horário."""
+    """Bloqueia o laboratório caso exista QUALQUER reserva em aberto ou aprovada no mesmo horário."""
     conn = conectar_bd()
     cursor = conn.cursor()
-    cursor.execute("SELECT horario FROM reservas WHERE recurso = ? AND data_reserva = ? AND status = 'Aprovada'", (recurso, data_str))
+    cursor.execute("SELECT horario, status FROM reservas WHERE recurso = ? AND data_reserva = ? AND status IN ('Aprovada', 'Pendente')", (recurso, data_str))
     reservas = cursor.fetchall()
     conn.close()
 
-    for (horario_str,) in reservas:
+    for horario_str, status in reservas:
         try:
             partes = horario_str.split(" às ")
             inicio_ex = datetime.strptime(partes[0].strip(), "%H:%M").time()
             fim_ex = datetime.strptime(partes[1].strip(), "%H:%M").time()
 
             if max(h_inicio, inicio_ex) < min(h_fim, fim_ex):
-                return True, horario_str
+                return True, horario_str, status
         except Exception:
             continue
-    return False, ""
+    return False, "", ""
 
 def obter_quantidade_reservada(recurso, data_str, h_inicio, h_fim):
-    """Calcula total reservado de um material em determinado intervalo de tempo."""
     conn = conectar_bd()
     cursor = conn.cursor()
-    cursor.execute("SELECT quantidade, horario FROM reservas WHERE recurso = ? AND data_reserva = ? AND status = 'Aprovada'", (recurso, data_str))
+    cursor.execute("SELECT quantidade, horario FROM reservas WHERE recurso = ? AND data_reserva = ? AND status IN ('Aprovada', 'Pendente')", (recurso, data_str))
     reservas = cursor.fetchall()
     conn.close()
 
@@ -351,8 +348,8 @@ def sistema_principal():
             col1, col2 = st.columns(2)
             
             with col1:
-                nome_prof = st.text_input("Nome do Solicitante:")
-                email_prof = st.text_input("E-mail de Contato:")
+                st.text_input("Solicitante Cadastrado:", value=st.session_state.nome_usuario, disabled=True)
+                email_prof = st.text_input("E-mail de Contato:", value=st.session_state.email_usuario)
                 tipo_documento = st.selectbox(
                     "Tipo de Documento:", 
                     [".pdf", ".png", ".jpg", ".txt(Texto)", ".docx(Word)", ".pptx(PowerPoint)", ".xlsx(Excel)", "Outro"],
@@ -373,16 +370,13 @@ def sistema_principal():
                 if not tipo_documento:
                     st.error("❌ Por favor, selecione o tipo de documento antes de enviar.")
                 else:
-                    solicitante_final = nome_prof if nome_prof else st.session_state.nome_usuario
-                    email_final = email_prof if email_prof else st.session_state.email_usuario
-
                     conn = conectar_bd()
                     cursor = conn.cursor()
                     cursor.execute("""
                         INSERT INTO impressoes (solicitante, email, tipo_documento, data_necessidade, copias, cor, observacao, status)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
-                        solicitante_final, email_final, tipo_documento, 
+                        st.session_state.nome_usuario, email_prof, tipo_documento, 
                         data_necessidade.strftime("%d/%m/%Y"), qtd_copias, formato_cor, 
                         obs_impressao if obs_impressao else "Sem observações", "Pendente"
                     ))
@@ -455,10 +449,10 @@ def sistema_principal():
                     st.error("❌ Quantidade indisponível para reserva.")
                 else:
                     data_formatted = data_reserva.strftime("%d/%m/%Y")
-                    em_uso, hor_conf = verificar_conflito_reserva(recurso_selecionado, data_formatted, hora_inicio, hora_fim)
+                    em_uso, hor_conf, status_conf = verificar_conflito_reserva(recurso_selecionado, data_formatted, hora_inicio, hora_fim)
                     
                     if tipo_reserva == "Laboratório" and em_uso:
-                        st.error(f"❌ O espaço **{recurso_selecionado}** já está reservado no horário `{hor_conf}`.")
+                        st.error(f"❌ O espaço **{recurso_selecionado}** já possui reserva no horário `{hor_conf}` (Status: {status_conf}). Apenas 1 usuário por horário.")
                     else:
                         conn = conectar_bd()
                         cursor = conn.cursor()
@@ -514,29 +508,54 @@ def sistema_principal():
             conn = conectar_bd()
             cursor = conn.cursor()
             
-            # CADASTRO DE PROFESSORES / USUÁRIOS
-            st.subheader("👤 Cadastrar Novo Professor / Usuário")
-            with st.expander("➕ Adicionar Novo Usuário"):
-                with st.form("form_novo_usuario", clear_on_submit=True):
-                    col_u1, col_u2 = st.columns(2)
-                    with col_u1:
+            # GESTÃO DE USUÁRIOS (CADASTRO E REMOÇÃO)
+            st.subheader("👥 Gestão de Usuários e Professores")
+            
+            df_usuarios = pd.read_sql_query("SELECT login AS 'Login', nome AS 'Nome Completo', email AS 'E-mail', nivel AS 'Nível de Acesso' FROM usuarios", conn)
+            st.dataframe(df_usuarios, use_container_width=True)
+
+            col_u1, col_u2 = st.columns(2)
+            
+            with col_u1:
+                with st.expander("➕ Adicionar Novo Usuário"):
+                    with st.form("form_novo_usuario", clear_on_submit=True):
                         nov_login = st.text_input("Login:")
                         nov_nome = st.text_input("Nome Completo:")
                         nov_email = st.text_input("E-mail:")
-                    with col_u2:
                         nov_senha = st.text_input("Senha Inicial:", type="password")
                         nov_nivel = st.selectbox("Nível de Acesso:", ["Professor", "Coordenação", "Administrador"])
+                        
+                        if st.form_submit_button("Cadastrar Usuário"):
+                            if not nov_login or not nov_senha or not nov_nome:
+                                st.error("❌ Preencha todos os campos obrigatórios.")
+                            else:
+                                try:
+                                    cursor.execute("INSERT INTO usuarios VALUES (?, ?, ?, ?, ?)", (nov_login, nov_senha, nov_nivel, nov_nome, nov_email))
+                                    conn.commit()
+                                    st.success(f"✅ Usuário **{nov_nome}** ({nov_nivel}) cadastrado!")
+                                    st.rerun()
+                                except sqlite3.IntegrityError:
+                                    st.error("❌ Login já cadastrado.")
+
+            with col_u2:
+                with st.expander("🗑️ Remover Usuário Cadastrado"):
+                    cursor.execute("SELECT login, nome, nivel FROM usuarios")
+                    todos_usuarios = cursor.fetchall()
                     
-                    if st.form_submit_button("Cadastrar Usuário"):
-                        if not nov_login or not nov_senha or not nov_nome:
-                            st.error("❌ Preencha todos os campos obrigatórios.")
-                        else:
-                            try:
-                                cursor.execute("INSERT INTO usuarios VALUES (?, ?, ?, ?, ?)", (nov_login, nov_senha, nov_nivel, nov_nome, nov_email))
+                    dict_usuarios = {f"{nome} ({login} - {nivel})": login for login, nome, nivel in todos_usuarios}
+                    
+                    if dict_usuarios:
+                        user_sel = st.selectbox("Selecione o Usuário para Excluir:", list(dict_usuarios.keys()))
+                        login_excluir = dict_usuarios[user_sel]
+                        
+                        if st.button("❌ Confirmar Exclusão do Usuário", type="primary"):
+                            if login_excluir == st.session_state.usuario_atual:
+                                st.error("❌ Você não pode excluir o seu próprio usuário enquanto estiver conectado!")
+                            else:
+                                cursor.execute("DELETE FROM usuarios WHERE login = ?", (login_excluir,))
                                 conn.commit()
-                                st.success(f"✅ Usuário **{nov_nome}** ({nov_nivel}) cadastrado!")
-                            except sqlite3.IntegrityError:
-                                st.error("❌ Login já cadastrado.")
+                                st.warning(f"Usuário com login **{login_excluir}** foi removido do sistema.")
+                                st.rerun()
 
             st.divider()
 
@@ -599,7 +618,7 @@ def sistema_principal():
                             st.rerun()
                             
                         if col_rec.button("❌ Recusar Reserva", key=f"rec_res_{res_id}"):
-                            cursor.execute("UPDATE reservas SET status = 'Recusada' WHERE id = ?", (res_id,))
+                            cursor.execute("UPDATE reservas SET status = 'Recusada' WHERE id = ?", (rec_res_id,))
                             conn.commit()
                             st.rerun()
             else:
@@ -627,15 +646,15 @@ def sistema_principal():
                 st.info("Nenhum recurso ou laboratório está atualmente marcado como 'Aprovado/Em Uso'.")
 
             st.divider()
-            
-            # REPOSIÇÃO E CADASTRO DE ESTOQUE (MECANOGRAFIA)
+
+            # REPOSIÇÃO, CADASTRO E REMOÇÃO DE ESTOQUE (MECANOGRAFIA)
             st.subheader("📦 Estoque de Insumos da Mecanografia")
             df_insumos = pd.read_sql_query("SELECT codigo AS 'Código', descricao AS 'Item', qtd_estoque AS 'Qtd Atual', qtd_minima AS 'Qtd Mínima', unidade AS 'Unidade' FROM insumos", conn)
             st.dataframe(df_insumos, use_container_width=True)
 
-            col_ins1, col_ins2 = st.columns(2)
+            col_ins1, col_ins2, col_ins3 = st.columns(3)
             with col_ins1:
-                with st.expander("➕ Adicionar/Repor Estoque de Insumos"):
+                with st.expander("➕ Adicionar/Repor Estoque"):
                     cursor.execute("SELECT codigo, descricao FROM insumos")
                     lista_ins = cursor.fetchall()
                     if lista_ins:
@@ -665,6 +684,20 @@ def sistema_principal():
                                 st.rerun()
                             except sqlite3.IntegrityError:
                                 st.error("Produto já existente.")
+
+            with col_ins3:
+                with st.expander("🗑️ Remover Insumo"):
+                    cursor.execute("SELECT codigo, descricao FROM insumos")
+                    insumos_para_remover = cursor.fetchall()
+                    if insumos_para_remover:
+                        dict_rem_ins = {desc: cod for cod, desc in insumos_para_remover}
+                        item_rem = st.selectbox("Selecione para Remover:", list(dict_rem_ins.keys()))
+                        
+                        if st.button("❌ Confirmar Exclusão do Insumo", type="primary"):
+                            cursor.execute("DELETE FROM insumos WHERE codigo = ?", (dict_rem_ins[item_rem],))
+                            conn.commit()
+                            st.warning(f"Insumo **{item_rem}** foi removido permanentemente!")
+                            st.rerun()
 
             st.divider()
 
