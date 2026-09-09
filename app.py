@@ -508,7 +508,7 @@ def sistema_principal():
             conn = conectar_bd()
             cursor = conn.cursor()
             
-            # GESTÃO DE USUÁRIOS (CADASTRO E REMOÇÃO)
+            # GESTÃO DE USUÁRIOS (CADASTRO E REMOÇÃO COM CONFIRMAÇÃO DE SENHA PARA ADMIN)
             st.subheader("👥 Gestão de Usuários e Professores")
             
             df_usuarios = pd.read_sql_query("SELECT login AS 'Login', nome AS 'Nome Completo', email AS 'E-mail', nivel AS 'Nível de Acesso' FROM usuarios", conn)
@@ -539,22 +539,29 @@ def sistema_principal():
 
             with col_u2:
                 with st.expander("🗑️ Remover Usuário Cadastrado"):
-                    cursor.execute("SELECT login, nome, nivel FROM usuarios")
+                    cursor.execute("SELECT login, nome, nivel, senha FROM usuarios")
                     todos_usuarios = cursor.fetchall()
                     
-                    dict_usuarios = {f"{nome} ({login} - {nivel})": login for login, nome, nivel in todos_usuarios}
+                    dict_usuarios = {f"{nome} ({login} - {nivel})": (login, nivel, senha) for login, nome, nivel, senha in todos_usuarios}
                     
                     if dict_usuarios:
                         user_sel = st.selectbox("Selecione o Usuário para Excluir:", list(dict_usuarios.keys()))
-                        login_excluir = dict_usuarios[user_sel]
+                        login_excluir, nivel_excluir, senha_excluir = dict_usuarios[user_sel]
                         
+                        senha_confirmacao = ""
+                        if nivel_excluir == "Administrador":
+                            st.warning("⚠️ **Atenção:** Este usuário é um **Administrador**. Insira a senha dele para confirmar a exclusão.")
+                            senha_confirmacao = st.text_input("Senha do Administrador a ser removido:", type="password", key="pwd_confirm_del")
+
                         if st.button("❌ Confirmar Exclusão do Usuário", type="primary"):
                             if login_excluir == st.session_state.usuario_atual:
                                 st.error("❌ Você não pode excluir o seu próprio usuário enquanto estiver conectado!")
+                            elif nivel_excluir == "Administrador" and senha_confirmacao != senha_excluir:
+                                st.error("❌ Senha incorreta! A exclusão do Administrador foi cancelada.")
                             else:
                                 cursor.execute("DELETE FROM usuarios WHERE login = ?", (login_excluir,))
                                 conn.commit()
-                                st.warning(f"Usuário com login **{login_excluir}** foi removido do sistema.")
+                                st.warning(f"Usuário **{login_excluir}** foi removido do sistema com sucesso.")
                                 st.rerun()
 
             st.divider()
