@@ -618,7 +618,7 @@ def sistema_principal():
                             st.rerun()
                             
                         if col_rec.button("❌ Recusar Reserva", key=f"rec_res_{res_id}"):
-                            cursor.execute("UPDATE reservas SET status = 'Recusada' WHERE id = ?", (rec_res_id,))
+                            cursor.execute("UPDATE reservas SET status = 'Recusada' WHERE id = ?", (res_id,))
                             conn.commit()
                             st.rerun()
             else:
