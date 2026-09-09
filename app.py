@@ -195,22 +195,13 @@ def inicializar_bd():
 
     # Insumos Padrão
     insumos_padrao = [
-        ("Papel A4 (Folhas)", 5000, 1000, "Unidades"),
-        ("Toner HP Preto", 10, 2, "Unidades"),
-        ("Toner HP Colorido", 5, 1, "Unidades")
+    
     ]
     cursor.executemany("INSERT OR IGNORE INTO insumos (descricao, qtd_estoque, qtd_minima, unidade) VALUES (?,?,?,?)", insumos_padrao)
 
     # Equipamentos Padrão
     equipamentos_padrao = [
-        ("Datashow", "Equipamento Tecnológico", 5),
-        ("Controle da TV", "Equipamento Tecnológico", 4),
-        ("Caixa de Som", "Equipamento Tecnológico", 3),
-        ("Microfone", "Equipamento Tecnológico", 4),
-        ("Bolas de Futebol", "Equipamento de Educação Física", 10),
-        ("Bolas de Vôlei", "Equipamento de Educação Física", 8),
-        ("Kits de Coletes", "Equipamento de Educação Física", 5),
-        ("Cones de Treinamento", "Equipamento de Educação Física", 15)
+    
     ]
     cursor.executemany("INSERT OR IGNORE INTO equipamentos (nome, categoria, qtd_total) VALUES (?,?,?)", equipamentos_padrao)
 
