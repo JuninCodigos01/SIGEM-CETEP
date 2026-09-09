@@ -10,7 +10,9 @@ st.set_page_config(
     layout="wide"
 )
 
+# -----------------------------------------------------------------------------
 # 1. BANCO DE DADOS
+# -----------------------------------------------------------------------------
 
 def conectar_bd():
     conn = sqlite3.connect("escola.db", check_same_thread=False)
@@ -114,13 +116,12 @@ def inicializar_bd():
     """)
 
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS Insumo (
-            id_insumo INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome VARCHAR(100),
-            tipo VARCHAR(50),
-            unidade_media VARCHAR(20),
-            qtd_estoque DECIMAL(10,2),
-            estoque_minimo DECIMAL(10,2)
+        CREATE TABLE IF NOT EXISTS insumos (
+            codigo INTEGER PRIMARY KEY AUTOINCREMENT,
+            descricao TEXT UNIQUE,
+            qtd_estoque INTEGER,
+            qtd_minima INTEGER,
+            unidade TEXT
         )
     """)
 
@@ -134,7 +135,7 @@ def inicializar_bd():
             data_movimentacao DATETIME,
             observacao VARCHAR(255),
             FOREIGN KEY (Usuario_id_usuario) REFERENCES Usuario(id_usuario),
-            FOREIGN KEY (Insumo_id_insumo) REFERENCES Insumo(id_insumo)
+            FOREIGN KEY (Insumo_id_insumo) REFERENCES insumos(codigo)
         )
     """)
 
@@ -163,7 +164,31 @@ def inicializar_bd():
         )
     """)
 
-    # Dados dos usuários
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS impressoes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            solicitante TEXT,
+            email TEXT,
+            tipo_documento TEXT,
+            data_necessidade TEXT,
+            copias INTEGER,
+            cor TEXT,
+            observacao TEXT,
+            status TEXT
+        )
+    """)
+
+    # Nova tabela para Equipamentos Tecnológicos e de Ed. Física
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS equipamentos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT UNIQUE,
+            categoria TEXT,
+            qtd_total INTEGER
+        )
+    """)
+
+    # Usuários Padrão
     usuarios_padrao = [
         ("Nicolas A", "1234", "Administrador", "Nicolau", "nicolau@gmail.com"),
         ("J Pedro", "1234", "Administrador", "Joao Pedro", "jpedro@gmail.com"),
@@ -175,21 +200,31 @@ def inicializar_bd():
     ]
     cursor.executemany("INSERT OR IGNORE INTO usuarios VALUES (?,?,?,?,?)", usuarios_padrao)
 
+    # Insumos Padrão
+    insumos_padrao = [
+        ("Papel A4 (Folhas)", 5000, 1000, "Unidades"),
+        ("Toner HP Preto", 10, 2, "Unidades"),
+        ("Toner HP Colorido", 5, 1, "Unidades")
+    ]
+    cursor.executemany("INSERT OR IGNORE INTO insumos (descricao, qtd_estoque, qtd_minima, unidade) VALUES (?,?,?,?)", insumos_padrao)
+
+    # Equipamentos Padrão
+    equipamentos_padrao = [
+        ("Datashow", "Equipamento Tecnológico", 5),
+        ("Controle da TV", "Equipamento Tecnológico", 4),
+        ("Caixa de Som", "Equipamento Tecnológico", 3),
+        ("Microfone", "Equipamento Tecnológico", 4),
+        ("Bolas de Futebol", "Equipamento de Educação Física", 10),
+        ("Bolas de Vôlei", "Equipamento de Educação Física", 8),
+        ("Kits de Coletes", "Equipamento de Educação Física", 5),
+        ("Cones de Treinamento", "Equipamento de Educação Física", 15)
+    ]
+    cursor.executemany("INSERT OR IGNORE INTO equipamentos (nome, categoria, qtd_total) VALUES (?,?,?)", equipamentos_padrao)
+
     conn.commit()
     conn.close()
 
 inicializar_bd()
-
-ESTOQUE_EQUIPAMENTOS = {
-    "Datashow": 5,
-    "Controle da TV": 4,
-    "Caixa de Som": 3,
-    "Microfone": 4,
-    "Bolas de Futebol": 10,
-    "Bolas de Vôlei": 8,
-    "Kits de Coletes": 5,
-    "Cones de Treinamento": 15
-}
 
 if "logado" not in st.session_state:
     st.session_state.logado = False
@@ -198,7 +233,63 @@ if "logado" not in st.session_state:
     st.session_state.nome_usuario = None
     st.session_state.email_usuario = None
 
+# -----------------------------------------------------------------------------
+# FUNÇÕES DE VALIDAÇÃO DE CONFLITO E SALDO DE MATERIAIS
+# -----------------------------------------------------------------------------
+
+def obter_estoque_equipamentos():
+    """Retorna um dicionário {nome_equipamento: qtd_total} vindo do Banco de Dados."""
+    conn = conectar_bd()
+    cursor = conn.cursor()
+    cursor.execute("SELECT nome, qtd_total FROM equipamentos")
+    dados = cursor.fetchall()
+    conn.close()
+    return {row[0]: row[1] for row in dados}
+
+def verificar_conflito_reserva(recurso, data_str, h_inicio, h_fim):
+    """Verifica se uma sala/laboratório já está reservada no mesmo horário."""
+    conn = conectar_bd()
+    cursor = conn.cursor()
+    cursor.execute("SELECT horario FROM reservas WHERE recurso = ? AND data_reserva = ? AND status = 'Aprovada'", (recurso, data_str))
+    reservas = cursor.fetchall()
+    conn.close()
+
+    for (horario_str,) in reservas:
+        try:
+            partes = horario_str.split(" às ")
+            inicio_ex = datetime.strptime(partes[0].strip(), "%H:%M").time()
+            fim_ex = datetime.strptime(partes[1].strip(), "%H:%M").time()
+
+            if max(h_inicio, inicio_ex) < min(h_fim, fim_ex):
+                return True, horario_str
+        except Exception:
+            continue
+    return False, ""
+
+def obter_quantidade_reservada(recurso, data_str, h_inicio, h_fim):
+    """Calcula total reservado de um material em determinado intervalo de tempo."""
+    conn = conectar_bd()
+    cursor = conn.cursor()
+    cursor.execute("SELECT quantidade, horario FROM reservas WHERE recurso = ? AND data_reserva = ? AND status = 'Aprovada'", (recurso, data_str))
+    reservas = cursor.fetchall()
+    conn.close()
+
+    total = 0
+    for qtd, horario_str in reservas:
+        try:
+            partes = horario_str.split(" às ")
+            inicio_ex = datetime.strptime(partes[0].strip(), "%H:%M").time()
+            fim_ex = datetime.strptime(partes[1].strip(), "%H:%M").time()
+
+            if max(h_inicio, inicio_ex) < min(h_fim, fim_ex):
+                total += qtd
+        except Exception:
+            continue
+    return total
+
+# -----------------------------------------------------------------------------
 # 2. TELA DE LOGIN
+# -----------------------------------------------------------------------------
 
 def tela_login():
     st.title("🏫 Sistema Integrado de Gestão e Mecanografia (SIGEM)")
@@ -227,7 +318,9 @@ def tela_login():
             else:
                 st.error("Usuário ou senha incorretos.")
 
+# -----------------------------------------------------------------------------
 # 3. SISTEMA PRINCIPAL
+# -----------------------------------------------------------------------------
 
 def sistema_principal():
     st.sidebar.title("👤 Perfil do Usuário")
@@ -251,7 +344,6 @@ def sistema_principal():
     with guias[0]:
         st.header("🖨️ Solicitação de Impressão (Mecanografia)")
         
-        # RN01: Validação de Antecedência Mínima de 48 Horas
         data_minima = date.today() + timedelta(days=2)
         st.info("ℹ **Antes de fazer sua solicitação, envie o arquivo no e-mail. Essas informações serão necessárias apenas para confirmar sua identidade.**")
         
@@ -298,16 +390,6 @@ def sistema_principal():
                     conn.close()
 
                     st.success("✅ Solicitação gravada no banco de dados com sucesso!")
-                    
-                    st.markdown("### 📄 Confirmação do Envio")
-                    with st.container(border=True):
-                        st.write(f"👤 **Nome do Professor:** {solicitante_final}")
-                        st.write(f"📧 **E-mail de Confirmação:** {email_final}")
-                        st.write(f"📑 **Tipo do Documento:** {tipo_documento}")
-                        st.write(f"📅 **Data Limite de Entrega:** {data_necessidade.strftime('%d/%m/%Y')}")
-                        st.write(f"🔢 **Quantidade de Cópias:** {qtd_copias} ({formato_cor})")
-                        if obs_impressao:
-                            st.write(f"📝 **Observação:** {obs_impressao}")
 
     # ABA 2: RESERVAR RECURSOS
     with guias[1]:
@@ -339,51 +421,67 @@ def sistema_principal():
                     ])
                     qtd_reservada = 1
                     
-                elif tipo_reserva == "Equipamento Tecnológico":
-                    recurso_selecionado = st.selectbox("Escolha o Equipamento:", [
-                        "Datashow", "Controle da TV", "Caixa de Som", "Microfone"
-                    ])
-                    max_disp = ESTOQUE_EQUIPAMENTOS[recurso_selecionado]
-                    qtd_reservada = st.number_input(f"Quantidade (Max: {max_disp}):", min_value=1, max_value=max_disp, value=1)
+                elif tipo_reserva in ["Equipamento Tecnológico", "Equipamento de Educação Física"]:
+                    conn = conectar_bd()
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT nome FROM equipamentos WHERE categoria = ?", (tipo_reserva,))
+                    opcoes = [r[0] for r in cursor.fetchall()]
+                    conn.close()
 
-                elif tipo_reserva == "Equipamento de Educação Física":
-                    recurso_selecionado = st.selectbox("Escolha o Material:", [
-                        "Bolas de Futebol", "Bolas de Vôlei", "Kits de Coletes", "Cones de Treinamento"
-                    ])
-                    max_disp = ESTOQUE_EQUIPAMENTOS[recurso_selecionado]
-                    qtd_reservada = st.number_input(f"Quantidade (Max: {max_disp}):", min_value=1, max_value=max_disp, value=1)
+                    if not opcoes:
+                        st.warning("Nenhum equipamento dessa categoria cadastrado no sistema.")
+                    else:
+                        recurso_selecionado = st.selectbox("Escolha o Item:", opcoes)
+                        
+                        estoque_dict = obter_estoque_equipamentos()
+                        max_total = estoque_dict.get(recurso_selecionado, 0)
+                        
+                        ja_reservados = obter_quantidade_reservada(recurso_selecionado, data_reserva.strftime("%d/%m/%Y"), hora_inicio, hora_fim)
+                        disp_real = max(0, max_total - ja_reservados)
+                        
+                        if disp_real > 0:
+                            qtd_reservada = st.number_input(f"Quantidade Disponível ({disp_real} livre(s)):", min_value=1, max_value=disp_real, value=1)
+                        else:
+                            st.error(f"❌ Nenhuma unidade disponível de {recurso_selecionado} para este horário.")
+                            qtd_reservada = 0
 
             observacao = st.text_area("Observações / Finalidade Pedagógica:")
             btn_submeter = st.form_submit_button("Confirmar Reserva")
 
             if btn_submeter:
-                status_inicial = "Pendente"
-                
-                conn = conectar_bd()
-                cursor = conn.cursor()
-                cursor.execute("""
-                    INSERT INTO reservas (solicitante, nivel, tipo, recurso, quantidade, data_reserva, horario, observacao, status)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    st.session_state.nome_usuario, st.session_state.nivel_acesso,
-                    tipo_reserva, recurso_selecionado, qtd_reservada,
-                    data_reserva.strftime("%d/%m/%Y"), f"{hora_inicio.strftime('%H:%M')} às {hora_fim.strftime('%H:%M')}",
-                    observacao if observacao else "Nenhuma", status_inicial
-                ))
-                conn.commit()
-                conn.close()
-
-                st.success("Reserva enviada para análise e gravada com sucesso!")
+                if hora_inicio >= hora_fim:
+                    st.error("❌ O horário de término deve ser posterior ao de início.")
+                elif qtd_reservada <= 0:
+                    st.error("❌ Quantidade indisponível para reserva.")
+                else:
+                    data_formatted = data_reserva.strftime("%d/%m/%Y")
+                    em_uso, hor_conf = verificar_conflito_reserva(recurso_selecionado, data_formatted, hora_inicio, hora_fim)
+                    
+                    if tipo_reserva == "Laboratório" and em_uso:
+                        st.error(f"❌ O espaço **{recurso_selecionado}** já está reservado no horário `{hor_conf}`.")
+                    else:
+                        conn = conectar_bd()
+                        cursor = conn.cursor()
+                        cursor.execute("""
+                            INSERT INTO reservas (solicitante, nivel, tipo, recurso, quantidade, data_reserva, horario, observacao, status)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (
+                            st.session_state.nome_usuario, st.session_state.nivel_acesso,
+                            tipo_reserva, recurso_selecionado, qtd_reservada,
+                            data_formatted, f"{hora_inicio.strftime('%H:%M')} às {hora_fim.strftime('%H:%M')}",
+                            observacao if observacao else "Nenhuma", "Pendente"
+                        ))
+                        conn.commit()
+                        conn.close()
+                        st.success("✅ Reserva gravada com sucesso!")
 
     # ABA 3: PAINEL DE SOLICITAÇÕES
     with guias[2]:
         st.header("📋 Histórico de Pedidos e Reservas")
-        
         conn = conectar_bd()
         
         st.subheader("🖨️ Solicitações de Impressão Enviadas")
         if st.session_state.nivel_acesso == "Professor":
-            # Busca todas as impressões associadas ao e-mail ou ao nome do usuário logado
             query_imp = "SELECT * FROM impressoes WHERE LOWER(email) = LOWER(?) OR LOWER(solicitante) = LOWER(?)"
             df_imp = pd.read_sql_query(query_imp, conn, params=(st.session_state.email_usuario, st.session_state.nome_usuario))
         else:
@@ -392,7 +490,7 @@ def sistema_principal():
         if not df_imp.empty:
             st.dataframe(df_imp, use_container_width=True)
         else:
-            st.info("Nenhuma solicitação de impressão encontrada.")
+            st.info("Nenhuma solicitação encontrada.")
 
         st.divider()
 
@@ -407,25 +505,47 @@ def sistema_principal():
             st.dataframe(df_res, use_container_width=True)
         else:
             st.info("Nenhuma reserva encontrada.")
-            
         conn.close()
 
     # ABA 4: PAINEL DA COORDENAÇÃO / MECANOGRAFIA
     if st.session_state.nivel_acesso in ["Administrador", "Coordenação"]:
         with guias[3]:
             st.header("⚙️ Controle de Mecanografia e Gestão de Pedidos")
-            
             conn = conectar_bd()
             cursor = conn.cursor()
             
-            # SEÇÃO DE ALERTAS DE ESTOQUE DE INSUMOS 
-            cursor.execute("SELECT descricao, qtd_estoque, qtd_minima, unidade FROM insumos WHERE qtd_estoque <= qtd_minima")
-            alertas = cursor.fetchall()
-            if alertas:
-                for item in alertas:
-                    st.warning(f"⚠️ **Alerta de Insumo Crítico:** O item **{item[0]}** está em nível crítico! Estoque Atual: {item[1]} {item[3]} (Mínimo: {item[2]} {item[3]}).")
+            # CADASTRO DE PROFESSORES / USUÁRIOS
+            st.subheader("👤 Cadastrar Novo Professor / Usuário")
+            with st.expander("➕ Adicionar Novo Usuário"):
+                with st.form("form_novo_usuario", clear_on_submit=True):
+                    col_u1, col_u2 = st.columns(2)
+                    with col_u1:
+                        nov_login = st.text_input("Login:")
+                        nov_nome = st.text_input("Nome Completo:")
+                        nov_email = st.text_input("E-mail:")
+                    with col_u2:
+                        nov_senha = st.text_input("Senha Inicial:", type="password")
+                        nov_nivel = st.selectbox("Nível de Acesso:", ["Professor", "Coordenação", "Administrador"])
+                    
+                    if st.form_submit_button("Cadastrar Usuário"):
+                        if not nov_login or not nov_senha or not nov_nome:
+                            st.error("❌ Preencha todos os campos obrigatórios.")
+                        else:
+                            try:
+                                cursor.execute("INSERT INTO usuarios VALUES (?, ?, ?, ?, ?)", (nov_login, nov_senha, nov_nivel, nov_nome, nov_email))
+                                conn.commit()
+                                st.success(f"✅ Usuário **{nov_nome}** ({nov_nivel}) cadastrado!")
+                            except sqlite3.IntegrityError:
+                                st.error("❌ Login já cadastrado.")
 
-            # SEÇÃO 1: SOLICITAÇÕES DE IMPRESSÃO
+            st.divider()
+
+            # ALERTAS DE ESTOQUE DE INSUMOS
+            cursor.execute("SELECT descricao, qtd_estoque, qtd_minima, unidade FROM insumos WHERE qtd_estoque <= qtd_minima")
+            for item in cursor.fetchall():
+                st.warning(f"⚠️ **Insumo Crítico:** {item[0]} | Atual: {item[1]} {item[3]} (Mínimo: {item[2]} {item[3]})")
+
+            # FILA DE IMPRESSÃO
             st.subheader("🖨️ Fila de Impressão Pendente")
             cursor.execute("SELECT * FROM impressoes WHERE status = 'Pendente'")
             impressoes_pendentes = cursor.fetchall()
@@ -433,21 +553,24 @@ def sistema_principal():
             if impressoes_pendentes:
                 for item in impressoes_pendentes:
                     imp_id, solicitante, email, tipo_doc, dt_necessidade, copias, cor, obs, status = item
-                    
                     with st.expander(f"Impressão #{imp_id} - {solicitante} ({tipo_doc})"):
-                        st.write(f"**E-mail:** {email}")
-                        st.write(f"**Para a Data:** {dt_necessidade}")
-                        st.write(f"**Cópias requeridas:** {copias} ({cor})")
-                        st.write(f"**Observação:** {obs}")
-                        
+                        st.write(f"**Para:** {dt_necessidade} | **Cópias:** {copias} ({cor})")
                         col1, col2 = st.columns(2)
-                        if col1.button("✅ Concluir/Aprovar e Dar Baixa de Papel", key=f"ap_imp_{imp_id}"):
-                            cursor.execute("UPDATE insumos SET qtd_estoque = qtd_estoque - ? WHERE descricao LIKE '%Papel A4%'", (copias,))
-                            cursor.execute("UPDATE impressoes SET status = 'Aprovada / Concluída' WHERE id = ?", (imp_id,))
-                            conn.commit()
-                            st.success(f"Solicitação #{imp_id} aprovada! Abatidas {copias} folhas de papel A4 do estoque.")
-                            st.rerun()
-                            
+                        
+                        if col1.button("✅ Concluir e Dar Baixa", key=f"ap_imp_{imp_id}"):
+                            cursor.execute("SELECT qtd_estoque FROM insumos WHERE descricao LIKE '%Papel A4%'")
+                            res_papel = cursor.fetchone()
+                            estoque_papel = res_papel[0] if res_papel else 0
+
+                            if estoque_papel < copias:
+                                st.error(f"❌ Estoque insuficiente de Papel A4! Necessário: {copias} | Atual: {estoque_papel}")
+                            else:
+                                cursor.execute("UPDATE insumos SET qtd_estoque = MAX(0, qtd_estoque - ?) WHERE descricao LIKE '%Papel A4%'", (copias,))
+                                cursor.execute("UPDATE impressoes SET status = 'Aprovada / Concluída' WHERE id = ?", (imp_id,))
+                                conn.commit()
+                                st.success(f"Aprovado! Baixa de {copias} folhas realizada.")
+                                st.rerun()
+                                
                         if col2.button("❌ Recusar", key=f"rec_imp_{imp_id}"):
                             cursor.execute("UPDATE impressoes SET status = 'Recusada' WHERE id = ?", (imp_id,))
                             conn.commit()
@@ -457,28 +580,22 @@ def sistema_principal():
 
             st.divider()
 
-            # SEÇÃO 2: FILA DE RESERVAS DE EQUIPAMENTOS E SALAS
-            st.subheader("📅 Fila de Reservas de Recursos e Espaços Pendentes")
+            # FILA DE RESERVAS PENDENTES
+            st.subheader("📅 Fila de Reservas Pendentes")
             cursor.execute("SELECT * FROM reservas WHERE status = 'Pendente'")
             reservas_pendentes = cursor.fetchall()
             
             if reservas_pendentes:
                 for item in reservas_pendentes:
                     res_id, solicitante, nivel, tipo_reserva_item, recurso, qtd, dt, hr, obs, status = item
-                    
                     with st.expander(f"Reserva #{res_id} - {solicitante} ({recurso})"):
-                        st.write(f"**Tipo de Recurso:** {tipo_reserva_item}")
-                        st.write(f"**Solicitante (Cargo):** {solicitante} ({nivel})")
-                        st.write(f"**Data Agendada:** {dt}")
-                        st.write(f"**Horário:** {hr}")
-                        st.write(f"**Quantidade Solicitada:** {qtd}")
-                        st.write(f"**Observação/Finalidade Pedagógica:** {obs}")
-                        
+                        st.write(f"**Data:** {dt} | **Horário:** {hr} | **Qtd:** {qtd}")
                         col_ap, col_rec = st.columns(2)
+                        
                         if col_ap.button("✅ Aprovar Reserva", key=f"ap_res_{res_id}"):
                             cursor.execute("UPDATE reservas SET status = 'Aprovada' WHERE id = ?", (res_id,))
                             conn.commit()
-                            st.success(f"Reserva #{res_id} aprovada com sucesso!")
+                            st.success("Reserva aprovada!")
                             st.rerun()
                             
                         if col_rec.button("❌ Recusar Reserva", key=f"rec_res_{res_id}"):
@@ -486,18 +603,129 @@ def sistema_principal():
                             conn.commit()
                             st.rerun()
             else:
-                st.info("Nenhuma reserva de recurso pendente no momento.")
+                st.info("Nenhuma reserva pendente.")
+
+            st.divider()
+
+            # PAINEL DE DEVOLUÇÃO / BAIXA DE RECURSOS EM USO
+            st.subheader("🔄 Recursos/Laboratórios Atualmente em Uso (Aprovados)")
+            cursor.execute("SELECT * FROM reservas WHERE status = 'Aprovada'")
+            reservas_em_uso = cursor.fetchall()
+
+            if reservas_em_uso:
+                for item in reservas_em_uso:
+                    res_id, solicitante, nivel, tipo_reserva_item, recurso, qtd, dt, hr, obs, status = item
+                    with st.expander(f"🔴 Em Uso #{res_id} - {recurso} (Reservado por: {solicitante})"):
+                        st.write(f"**Data:** {dt} | **Horário:** {hr} | **Quantidade:** {qtd}")
+                        st.write(f"**Obs:** {obs}")
+                        if st.button("📥 Receber Devolta / Finalizar Uso", key=f"baixa_res_{res_id}"):
+                            cursor.execute("UPDATE reservas SET status = 'Devolvido / Finalizado' WHERE id = ?", (res_id,))
+                            conn.commit()
+                            st.success(f"Uso do recurso **{recurso}** finalizado e liberado com sucesso!")
+                            st.rerun()
+            else:
+                st.info("Nenhum recurso ou laboratório está atualmente marcado como 'Aprovado/Em Uso'.")
 
             st.divider()
             
-            # SEÇÃO 3: GESTÃO DO ESTOQUE DE INSUMOS DE IMPRESSÃO
-            st.subheader("📦 Estoque de Insumos de Reprografia e Impressão (Mecanografia)")
-            df_insumos = pd.read_sql_query("SELECT codigo AS 'Código', descricao AS 'Item/Insumo', qtd_estoque AS 'Qtd Atual', qtd_minima AS 'Qtd Mínima', unidade AS 'Unidade' FROM insumos", conn)
+            # REPOSIÇÃO E CADASTRO DE ESTOQUE (MECANOGRAFIA)
+            st.subheader("📦 Estoque de Insumos da Mecanografia")
+            df_insumos = pd.read_sql_query("SELECT codigo AS 'Código', descricao AS 'Item', qtd_estoque AS 'Qtd Atual', qtd_minima AS 'Qtd Mínima', unidade AS 'Unidade' FROM insumos", conn)
             st.dataframe(df_insumos, use_container_width=True)
 
+            col_ins1, col_ins2 = st.columns(2)
+            with col_ins1:
+                with st.expander("➕ Adicionar/Repor Estoque de Insumos"):
+                    cursor.execute("SELECT codigo, descricao FROM insumos")
+                    lista_ins = cursor.fetchall()
+                    if lista_ins:
+                        opcoes_ins = {desc: cod for cod, desc in lista_ins}
+                        item_sel = st.selectbox("Insumo:", list(opcoes_ins.keys()))
+                        qtd_add = st.number_input("Qtd Recebida:", min_value=1, value=500)
+                        
+                        if st.button("Confirmar Entrada de Insumo"):
+                            cursor.execute("UPDATE insumos SET qtd_estoque = qtd_estoque + ? WHERE codigo = ?", (qtd_add, opcoes_ins[item_sel]))
+                            conn.commit()
+                            st.success(f"Adicionadas {qtd_add} unidades de {item_sel}!")
+                            st.rerun()
+
+            with col_ins2:
+                with st.expander("🆕 Cadastrar Novo Insumo"):
+                    novo_nome = st.text_input("Nome do Produto:")
+                    nova_qtd = st.number_input("Quantidade Inicial:", min_value=0, value=100)
+                    nova_qtd_min = st.number_input("Mínimo de Alerta:", min_value=1, value=20)
+                    nova_un = st.text_input("Unidade:", value="Unidades")
+                    
+                    if st.button("Cadastrar Insumo"):
+                        if novo_nome:
+                            try:
+                                cursor.execute("INSERT INTO insumos (descricao, qtd_estoque, qtd_minima, unidade) VALUES (?, ?, ?, ?)", (novo_nome, nova_qtd, nova_qtd_min, nova_un))
+                                conn.commit()
+                                st.success(f"Insumo **{novo_nome}** cadastrado!")
+                                st.rerun()
+                            except sqlite3.IntegrityError:
+                                st.error("Produto já existente.")
+
             st.divider()
-            st.subheader("⚽ Equipamentos Tecnológicos e de Educação Física")
-            st.json(ESTOQUE_EQUIPAMENTOS)
+
+            # GESTÃO INTERATIVA DE EQUIPAMENTOS E MATERIAIS ESPORTIVOS
+            st.subheader("⚽ Gestão Interativa de Equipamentos (Tecnológicos & Educação Física)")
+            
+            df_eq = pd.read_sql_query("SELECT id AS 'ID', nome AS 'Equipamento', categoria AS 'Categoria', qtd_total AS 'Quantidade Disponível' FROM equipamentos", conn)
+            st.dataframe(df_eq, use_container_width=True)
+
+            col_eq1, col_eq2, col_eq3 = st.columns(3)
+            
+            with col_eq1:
+                with st.expander("➕ Repor / Comprar Equipamento"):
+                    cursor.execute("SELECT id, nome FROM equipamentos")
+                    eqs = cursor.fetchall()
+                    if eqs:
+                        dict_eqs = {nome: eq_id for eq_id, nome in eqs}
+                        eq_sel = st.selectbox("Selecione o Item para Adicionar:", list(dict_eqs.keys()))
+                        qtd_add_eq = st.number_input("Quantidade Adicionada:", min_value=1, value=1)
+                        if st.button("Confirmar Reposição"):
+                            cursor.execute("UPDATE equipamentos SET qtd_total = qtd_total + ? WHERE id = ?", (qtd_add_eq, dict_eqs[eq_sel]))
+                            conn.commit()
+                            st.success(f"Adicionadas {qtd_add_eq} unidade(s) a {eq_sel}!")
+                            st.rerun()
+
+            with col_eq2:
+                with st.expander("🗑️ Dar Baixa (Danificado / Perdido)"):
+                    cursor.execute("SELECT id, nome, qtd_total FROM equipamentos")
+                    eqs_baixa = cursor.fetchall()
+                    if eqs_baixa:
+                        dict_eqs_baixa = {f"{nome} (Disp: {qtd})": (eq_id, qtd, nome) for eq_id, nome, qtd in eqs_baixa}
+                        eq_sel_baixa = st.selectbox("Selecione o Item para Baixa:", list(dict_eqs_baixa.keys()))
+                        eq_id, max_disp, nome_item = dict_eqs_baixa[eq_sel_baixa]
+                        
+                        qtd_sub_eq = st.number_input("Qtd Danificada/Perdida:", min_value=1, max_value=max(1, max_disp), value=1)
+                        motivo_baixa = st.text_input("Motivo (Ex: Bola furou, Cone quebrou, etc.):")
+                        
+                        if st.button("Confirmar Baixa/Descarte"):
+                            if max_disp < qtd_sub_eq:
+                                st.error("❌ Não é possível retirar mais do que a quantidade disponível.")
+                            else:
+                                cursor.execute("UPDATE equipamentos SET qtd_total = MAX(0, qtd_total - ?) WHERE id = ?", (qtd_sub_eq, eq_id))
+                                conn.commit()
+                                st.warning(f"Baixa registrada: -{qtd_sub_eq} unidade(s) de {nome_item}. Motivo: {motivo_baixa}")
+                                st.rerun()
+
+            with col_eq3:
+                with st.expander("🆕 Cadastrar Novo Equipamento"):
+                    novo_eq_nome = st.text_input("Nome do Equipamento:")
+                    novo_eq_cat = st.selectbox("Categoria:", ["Equipamento Tecnológico", "Equipamento de Educação Física"])
+                    novo_eq_qtd = st.number_input("Quantidade Inicial:", min_value=1, value=5)
+                    
+                    if st.button("Cadastrar Equipamento"):
+                        if novo_eq_nome:
+                            try:
+                                cursor.execute("INSERT INTO equipamentos (nome, categoria, qtd_total) VALUES (?, ?, ?)", (novo_eq_nome, novo_eq_cat, novo_eq_qtd))
+                                conn.commit()
+                                st.success(f"Equipamento **{novo_eq_nome}** cadastrado!")
+                                st.rerun()
+                            except sqlite3.IntegrityError:
+                                st.error("Equipamento já cadastrado.")
 
             conn.close()
 
