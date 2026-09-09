@@ -189,13 +189,7 @@ def inicializar_bd():
 
     # Usuários Padrão
     usuarios_padrao = [
-        ("Nicolas A", "1234", "Administrador", "Nicolau", "nicolau@gmail.com"),
-        ("J Pedro", "1234", "Administrador", "Joao Pedro", "jpedro@gmail.com"),
-        ("J Wender", "1234", "Administrador", "+Novo", "jwender@gmail.com"),
-        ("Ryan", "1234", "Administrador", "Ryan", "ryan@gmail.com"),
-        ("Gabriel", "1234", "Administrador", "Gabriel", "gabriel@gmail.com"),
-        ("Professor", "1234", "Professor", "Professor(a) Genérico(a)", "professor@gmail.com"),
-        ("Coordenação", "1234", "Coordenação", "Coordenador(a) Genérico(a)", "coordenacao@gmail.com")
+        ("DBA", "2525", "Administrador", "Ryan", "ryan@gmail.com"),
     ]
     cursor.executemany("INSERT OR IGNORE INTO usuarios VALUES (?,?,?,?,?)", usuarios_padrao)
 
