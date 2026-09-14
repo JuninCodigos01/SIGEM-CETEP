@@ -3,27 +3,33 @@ import pandas as pd
 import sqlite3
 from datetime import date, datetime, timedelta, time
 
-# Configuração Inicial da Página
+# CONFIGURAÇÃO DA PÁGINA (STREAMLIT)
+# Onde fica: No topo do script, executado na inicialização.
+# O que faz: Configura o título da aba do navegador, ícone e largura da página.
 st.set_page_config(
     page_title="SIGEM - Gestão Escolar & Mecanografia", 
     page_icon="🏫", 
     layout="wide"
 )
 
-# -----------------------------------------------------------------------------
-# 1. BANCO DE DADOS
-# -----------------------------------------------------------------------------
+# 1. GERENCIAMENTO DO BANCO DE DADOS (SQLite3)
+# Onde fica: Seção inicial do script.
+# O que faz: Conecta ao arquivo 'escola.db' e cria exatamente 10 tabelas relacionais.
 
 def conectar_bd():
+    # Abre e retorna a conexão com o banco de dados SQLite 'escola.db'.
     conn = sqlite3.connect("escola.db", check_same_thread=False)
     return conn
 
 def inicializar_bd():
+    # Cria as 10 tabelas fundamentais do sistema e insere os dados padrão iniciais.
     conn = conectar_bd()
     cursor = conn.cursor()
     
+    # Ativa o suporte a chaves estrangeiras no SQLite
     cursor.execute("PRAGMA foreign_keys = ON;")
 
+    # TABELA 1: Curso (Cadastro dos cursos oferecidos pela escola)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Curso (
             id_curso INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -32,6 +38,7 @@ def inicializar_bd():
         )
     """)
 
+    # TABELA 2: Turma (Turmas vinculadas a um determinado Curso)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Turma (
             id_turma INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -43,6 +50,7 @@ def inicializar_bd():
         )
     """)
 
+    # TABELA 3: Usuario (Mapeamento geral de usuários do sistema escolar)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Usuario (
             id_usuario INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -53,6 +61,7 @@ def inicializar_bd():
         )
     """)
 
+    # TABELA 4: Arquivo (Metadados dos arquivos enviados para impressão)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Arquivo (
             id_arquivo INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -63,6 +72,7 @@ def inicializar_bd():
         )
     """)
 
+    # TABELA 5: Solicitacao (Registro principal de solicitações de impressão)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Solicitacao (
             id_solicitacao INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -80,6 +90,7 @@ def inicializar_bd():
         )
     """)
 
+    # TABELA 6: Disciplina (Disciplinas associadas aos Cursos e Solicitações)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Disciplina (
             id_disciplina INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -93,8 +104,9 @@ def inicializar_bd():
         )
     """)
 
+    # TABELA 7: Email (Rastreio de notificações por e-mail enviadas às solicitações)
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS email (
+        CREATE TABLE IF NOT EXISTS Email (
             id_email INTEGER PRIMARY KEY AUTOINCREMENT,
             Solicitacao_id_solicitacao INTEGER,
             Solicitacao_Arquivo_id_arquivo INTEGER,
@@ -107,6 +119,7 @@ def inicializar_bd():
         )
     """)
 
+    # TABELA 8: Historico_Status (Histórico de mudanças de status das solicitações)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Historico_Status (
             id_historico INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -115,6 +128,7 @@ def inicializar_bd():
         )
     """)
 
+    # TABELA 9: insumos (Estoque de papéis, toners e suprimentos da mecanografia)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS insumos (
             codigo INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -125,6 +139,7 @@ def inicializar_bd():
         )
     """)
 
+    # TABELA 10: Mov_Estoque (Registro de movimentações de entrada/saída de insumos)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Mov_Estoque (
             id_movimentacao INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -139,6 +154,7 @@ def inicializar_bd():
         )
     """)
 
+    # TABELAS DE APOIO/INTERFACE (Mantidas para pleno funcionamento dos formulários)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS usuarios (
             login TEXT PRIMARY KEY,
@@ -187,29 +203,44 @@ def inicializar_bd():
         )
     """)
 
-    # Usuários Padrão
-    usuarios_padrao = [
-        ("DBA", "2525", "Administrador", "Ryan", "ryan@gmail.com"),
-    ]
-    cursor.executemany("INSERT OR IGNORE INTO usuarios VALUES (?,?,?,?,?)", usuarios_padrao)
+    # Inserção de Usuário Padrão (Administrador)
+    cursor.executemany(
+        "INSERT OR IGNORE INTO usuarios VALUES (?,?,?,?,?)",
+        [("DBA", "2525", "Administrador", "Ryan", "ryan@gmail.com")]
+    )
 
-    # Insumos Padrão
-    insumos_padrao = [
-    
-    ]
-    cursor.executemany("INSERT OR IGNORE INTO insumos (descricao, qtd_estoque, qtd_minima, unidade) VALUES (?,?,?,?)", insumos_padrao)
+    # Inserção de Insumos Padrão
+    cursor.executemany(
+        "INSERT OR IGNORE INTO insumos (descricao, qtd_estoque, qtd_minima, unidade) VALUES (?,?,?,?)",
+        [
+            ("Papel A4 (Folhas)", 5000, 1000, "Unidades"),
+            ("Toner HP Preto", 10, 2, "Unidades"),
+            ("Toner HP Colorido", 5, 1, "Unidades")
+        ]
+    )
 
-    # Equipamentos Padrão
-    equipamentos_padrao = [
-    
-    ]
-    cursor.executemany("INSERT OR IGNORE INTO equipamentos (nome, categoria, qtd_total) VALUES (?,?,?)", equipamentos_padrao)
+    # Inserção de Equipamentos Padrão
+    cursor.executemany(
+        "INSERT OR IGNORE INTO equipamentos (nome, categoria, qtd_total) VALUES (?,?,?)",
+        [
+            ("Datashow", "Equipamento Tecnológico", 5),
+            ("Controle da TV", "Equipamento Tecnológico", 4),
+            ("Caixa de Som", "Equipamento Tecnológico", 3),
+            ("Microfone", "Equipamento Tecnológico", 4),
+            ("Bolas de Futebol", "Equipamento de Educação Física", 10),
+            ("Bolas de Vôlei", "Equipamento de Educação Física", 8),
+            ("Kits de Coletes", "Equipamento de Educação Física", 5),
+            ("Cones de Treinamento", "Equipamento de Educação Física", 15)
+        ]
+    )
 
     conn.commit()
     conn.close()
 
+# Executa a inicialização do banco ao carregar o arquivo
 inicializar_bd()
 
+# Inicializa as variáveis de controle da sessão (Session State)
 if "logado" not in st.session_state:
     st.session_state.logado = False
     st.session_state.usuario_atual = None
@@ -217,11 +248,12 @@ if "logado" not in st.session_state:
     st.session_state.nome_usuario = None
     st.session_state.email_usuario = None
 
-# -----------------------------------------------------------------------------
-# FUNÇÕES DE VALIDAÇÃO DE CONFLITO E SALDO DE MATERIAIS
-# -----------------------------------------------------------------------------
+# 2. FUNÇÕES AUXILIARES DE REGRAS DE NEGÓCIO E VALIDAÇÃO
+# Onde fica: Bloco intermediário entre BD e Interface.
+# O que faz: Verifica disponibilidade de horários e consulta saldos de materiais.
 
 def obter_estoque_equipamentos():
+    # Retorna um dicionário contendo o nome e a quantidade atual dos equipamentos.
     conn = conectar_bd()
     cursor = conn.cursor()
     cursor.execute("SELECT nome, qtd_total FROM equipamentos")
@@ -230,7 +262,7 @@ def obter_estoque_equipamentos():
     return {row[0]: row[1] for row in dados}
 
 def verificar_conflito_reserva(recurso, data_str, h_inicio, h_fim):
-    """Bloqueia o laboratório caso exista QUALQUER reserva em aberto ou aprovada no mesmo horário."""
+    # Verifica se um determinado recurso/espaço já possui reserva no mesmo horário.
     conn = conectar_bd()
     cursor = conn.cursor()
     cursor.execute("SELECT horario, status FROM reservas WHERE recurso = ? AND data_reserva = ? AND status IN ('Aprovada', 'Pendente')", (recurso, data_str))
@@ -250,6 +282,7 @@ def verificar_conflito_reserva(recurso, data_str, h_inicio, h_fim):
     return False, "", ""
 
 def obter_quantidade_reservada(recurso, data_str, h_inicio, h_fim):
+    # Calcula a quantidade de um determinado equipamento já agendado para o horário.
     conn = conectar_bd()
     cursor = conn.cursor()
     cursor.execute("SELECT quantidade, horario FROM reservas WHERE recurso = ? AND data_reserva = ? AND status IN ('Aprovada', 'Pendente')", (recurso, data_str))
@@ -269,9 +302,9 @@ def obter_quantidade_reservada(recurso, data_str, h_inicio, h_fim):
             continue
     return total
 
-# -----------------------------------------------------------------------------
-# 2. TELA DE LOGIN
-# -----------------------------------------------------------------------------
+# 3. TELA DE LOGIN
+# Onde fica: Função executada quando st.session_state.logado for False.
+# O que faz: Autentica o usuário no banco e armazena os dados na sessão.
 
 def tela_login():
     st.title("🏫 Sistema Integrado de Gestão e Mecanografia (SIGEM)")
@@ -300,11 +333,12 @@ def tela_login():
             else:
                 st.error("Usuário ou senha incorretos.")
 
-# -----------------------------------------------------------------------------
-# 3. SISTEMA PRINCIPAL
-# -----------------------------------------------------------------------------
+# 4. SISTEMA PRINCIPAL (PAINEL DE CONTROL)
+# Onde fica: Função executada após autenticação do usuário.
+# O que faz: Exibe a barra lateral, abas de solicitação, reserva e gestão.
 
 def sistema_principal():
+    # BARRA LATERAL (Perfil do Usuário Logado)
     st.sidebar.title("👤 Perfil do Usuário")
     st.sidebar.write(f"**Nome:** {st.session_state.nome_usuario}")
     st.sidebar.write(f"**E-mail:** {st.session_state.email_usuario}")
@@ -316,13 +350,16 @@ def sistema_principal():
 
     st.title("📌 Painel de Gestão e Pedidos")
 
+    # ESTRUTURA DE ABAS
     abas = ["🖨️ Solicitar Impressão", "📅 Reservar Recursos", "📋 Painel de Solicitações"]
     if st.session_state.nivel_acesso in ["Administrador", "Coordenação"]:
         abas.append("📊 Gestão da Coordenação")
         
     guias = st.tabs(abas)
 
-    # ABA 1: SOLICITAR IMPRESSÃO
+    # ABA 1: SOLICITAR IMPRESSÃO (Professores / Usuários)
+    # Onde fica: Guia[0]
+    # O que faz: Coleta dados e insere novas solicitações na tabela impressoes.
     with guias[0]:
         st.header("🖨️ Solicitação de Impressão (Mecanografia)")
         
@@ -370,7 +407,9 @@ def sistema_principal():
 
                     st.success("✅ Solicitação gravada no banco de dados com sucesso!")
 
-    # ABA 2: RESERVAR RECURSOS
+    # ABA 2: RESERVAR RECURSOS (Laboratórios e Materiais)
+    # Onde fica: Guia[1]
+    # O que faz: Realiza agendamentos na tabela reservas com checagem de horário/estoque.
     with guias[1]:
         st.header("Realizar Reserva de Recursos")
         
@@ -454,7 +493,9 @@ def sistema_principal():
                         conn.close()
                         st.success("✅ Reserva gravada com sucesso!")
 
-    # ABA 3: PAINEL DE SOLICITAÇÕES
+    # ABA 3: PAINEL DE SOLICITAÇÕES (Visualização do Histórico)
+    # Onde fica: Guia[2]
+    # O que faz: Exibe relatórios formatados do que foi solicitado pelo usuário/escola.
     with guias[2]:
         st.header("📋 Histórico de Pedidos e Reservas")
         conn = conectar_bd()
@@ -486,21 +527,23 @@ def sistema_principal():
             st.info("Nenhuma reserva encontrada.")
         conn.close()
 
-    # ABA 4: PAINEL DA COORDENAÇÃO / MECANOGRAFIA
+    # ABA 4: GESTÃO DA COORDENAÇÃO E MECANOGRAFIA
+    # Onde fica: Guia[3] (Visível apenas para Administrador/Coordenação)
+    # O que faz: Aprova/recusa solicitações, gerencia usuários, insumos e equipamentos.
     if st.session_state.nivel_acesso in ["Administrador", "Coordenação"]:
         with guias[3]:
             st.header("⚙️ Controle de Mecanografia e Gestão de Pedidos")
             conn = conectar_bd()
             cursor = conn.cursor()
             
-            # GESTÃO DE USUÁRIOS (CADASTRO E REMOÇÃO COM CONFIRMAÇÃO DE SENHA PARA ADMIN)
+            # SEÇÃO: Gestão de Usuários e Professores
             st.subheader("👥 Gestão de Usuários e Professores")
-            
             df_usuarios = pd.read_sql_query("SELECT login AS 'Login', nome AS 'Nome Completo', email AS 'E-mail', nivel AS 'Nível de Acesso' FROM usuarios", conn)
             st.dataframe(df_usuarios, use_container_width=True)
 
             col_u1, col_u2 = st.columns(2)
             
+            # Sub-bloco: Adicionar Usuários
             with col_u1:
                 with st.expander("➕ Adicionar Novo Usuário"):
                     with st.form("form_novo_usuario", clear_on_submit=True):
@@ -522,6 +565,7 @@ def sistema_principal():
                                 except sqlite3.IntegrityError:
                                     st.error("❌ Login já cadastrado.")
 
+            # Sub-bloco: Remover Usuários (Com segurança reforçada para Admin)
             with col_u2:
                 with st.expander("🗑️ Remover Usuário Cadastrado"):
                     cursor.execute("SELECT login, nome, nivel, senha FROM usuarios")
@@ -551,12 +595,12 @@ def sistema_principal():
 
             st.divider()
 
-            # ALERTAS DE ESTOQUE DE INSUMOS
+            # SEÇÃO: Alertas Críticos de Insumos
             cursor.execute("SELECT descricao, qtd_estoque, qtd_minima, unidade FROM insumos WHERE qtd_estoque <= qtd_minima")
             for item in cursor.fetchall():
                 st.warning(f"⚠️ **Insumo Crítico:** {item[0]} | Atual: {item[1]} {item[3]} (Mínimo: {item[2]} {item[3]})")
 
-            # FILA DE IMPRESSÃO
+            # SEÇÃO: Aprovação e Dar Baixa da Fila de Impressão
             st.subheader("🖨️ Fila de Impressão Pendente")
             cursor.execute("SELECT * FROM impressoes WHERE status = 'Pendente'")
             impressoes_pendentes = cursor.fetchall()
@@ -591,7 +635,7 @@ def sistema_principal():
 
             st.divider()
 
-            # FILA DE RESERVAS PENDENTES
+            # SEÇÃO: Aprovação de Fila de Reservas
             st.subheader("📅 Fila de Reservas Pendentes")
             cursor.execute("SELECT * FROM reservas WHERE status = 'Pendente'")
             reservas_pendentes = cursor.fetchall()
@@ -618,7 +662,7 @@ def sistema_principal():
 
             st.divider()
 
-            # PAINEL DE DEVOLUÇÃO / BAIXA DE RECURSOS EM USO
+            # SEÇÃO: Devolução e Baixa de Recursos em Uso
             st.subheader("🔄 Recursos/Laboratórios Atualmente em Uso (Aprovados)")
             cursor.execute("SELECT * FROM reservas WHERE status = 'Aprovada'")
             reservas_em_uso = cursor.fetchall()
@@ -635,18 +679,18 @@ def sistema_principal():
                             st.success(f"Uso do recurso **{recurso}** finalizado e liberado com sucesso!")
                             st.rerun()
             else:
-                st.info("Nenum recurso ou laboratório está atualmente marcado como 'Aprovado/Em Uso'.")
+                st.info("Nenhum recurso ou laboratório está atualmente marcado como 'Aprovado/Em Uso'.")
 
             st.divider()
 
-            # -----------------------------------------------------------------
-            # REPOSIÇÃO, RETIRADA, CADASTRO E REMOÇÃO DE ESTOQUE (MECANOGRAFIA)
-            # -----------------------------------------------------------------
+            # SEÇÃO: Gestão de Insumos da Mecanografia (Tabela `insumos`)
             st.subheader("📦 Estoque de Insumos da Mecanografia")
             df_insumos = pd.read_sql_query("SELECT codigo AS 'Código', descricao AS 'Item', qtd_estoque AS 'Qtd Atual', qtd_minima AS 'Qtd Mínima', unidade AS 'Unidade' FROM insumos", conn)
             st.dataframe(df_insumos, use_container_width=True)
 
             col_ins1, col_ins2, col_ins3 = st.columns(3)
+            
+            # Sub-bloco: Entrada e Retirada de Unidades em Insumos
             with col_ins1:
                 with st.expander("➕ Adicionar/Repor Estoque"):
                     cursor.execute("SELECT codigo, descricao FROM insumos")
@@ -681,6 +725,7 @@ def sistema_principal():
                                 st.warning(f"Retiradas {qtd_sub} unidade(s) de {desc_ins}!")
                                 st.rerun()
 
+            # Sub-bloco: Novo Insumo
             with col_ins2:
                 with st.expander("🆕 Cadastrar Novo Insumo"):
                     novo_nome = st.text_input("Nome do Produto:")
@@ -698,6 +743,7 @@ def sistema_principal():
                             except sqlite3.IntegrityError:
                                 st.error("Produto já existente.")
 
+            # Sub-bloco: Exclusão Permanente de Insumo
             with col_ins3:
                 with st.expander("🗑️ Excluir Insumo Permanentemente"):
                     cursor.execute("SELECT codigo, descricao FROM insumos")
@@ -714,9 +760,7 @@ def sistema_principal():
 
             st.divider()
 
-            # -----------------------------------------------------------------
-            # GESTÃO INTERATIVA DE EQUIPAMENTOS E MATERIAIS ESPORTIVOS
-            # -----------------------------------------------------------------
+            # SEÇÃO: Gestão de Equipamentos Tecnológicos e Esportivos (Tabela `equipamentos`)
             st.subheader("⚽ Gestão Interativa de Equipamentos (Tecnológicos & Educação Física)")
             
             df_eq = pd.read_sql_query("SELECT id AS 'ID', nome AS 'Equipamento', categoria AS 'Categoria', qtd_total AS 'Quantidade Disponível' FROM equipamentos", conn)
@@ -724,6 +768,7 @@ def sistema_principal():
 
             col_eq1, col_eq2, col_eq3 = st.columns(3)
             
+            # Sub-bloco: Reposição e Baixa de Unidades em Equipamentos
             with col_eq1:
                 with st.expander("➕ Repor / Comprar Equipamento"):
                     cursor.execute("SELECT id, nome FROM equipamentos")
@@ -758,6 +803,7 @@ def sistema_principal():
                                 st.warning(f"Baixa registrada: -{qtd_sub_eq} unidade(s) de {nome_item}. Motivo: {motivo_baixa}")
                                 st.rerun()
 
+            # Sub-bloco: Novo Equipamento
             with col_eq2:
                 with st.expander("🆕 Cadastrar Novo Equipamento"):
                     novo_eq_nome = st.text_input("Nome do Equipamento:")
@@ -774,6 +820,7 @@ def sistema_principal():
                             except sqlite3.IntegrityError:
                                 st.error("Equipamento já cadastrado.")
 
+            # Sub-bloco: Exclusão Definitiva de Equipamentos (ex: Cones)
             with col_eq3:
                 with st.expander("🗑️ Excluir Equipamento Permanentemente"):
                     cursor.execute("SELECT id, nome, categoria FROM equipamentos")
@@ -791,7 +838,9 @@ def sistema_principal():
 
             conn.close()
 
-# 4. EXECUÇÃO DO FLUXO
+# 5. PONTO DE ENTRADA DO SISTEMA
+# Onde fica: Rodapé do script.
+# O que faz: Direciona para a tela de Login ou para o Painel Principal conforme a sessão.
 if not st.session_state.logado:
     tela_login()
 else:
