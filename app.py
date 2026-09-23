@@ -302,6 +302,7 @@ def sistema_principal():
 
     st.title("📌 Painel de Gestão e Pedidos")
 
+    # DECLARAÇÃO DAS ABAS FIXAS NO TOPO
     abas = ["🖨️ Solicitar Impressão", "📅 Reservar Recursos", "📋 Painel de Solicitações"]
     if st.session_state.nivel_acesso in ["Administrador", "Coordenação"]:
         abas.append("📊 Gestão da Coordenação")
@@ -381,7 +382,7 @@ def sistema_principal():
 
                     st.success(f"✅ Solicitação do arquivo **{nome_arq}** enviada com sucesso!")
 
-# ABA 2: RESERVAR RECURSOS (SOLUÇÃO DEFINITIVA ANTI-BUG REACT)
+    # ABA 2: RESERVAR RECURSOS
     with guias[1]:
         st.header("Realizar Reserva de Recursos")
         st.info(f"👤 **Professor/Responsável pela Reserva:** {st.session_state.nome_usuario}")
@@ -446,8 +447,7 @@ def sistema_principal():
         except ValueError:
             tem_erro_horario = True
 
-        # 5. Input de Quantidade mantido SEMPRE renderizado na página
-        # Em vez de sumir com o campo, apenas o desativamos (disabled) se a quantidade for 0
+        # 5. Input de Quantidade
         if tipo_reserva != "Laboratório":
             if disp_real == 0 and not tem_erro_horario:
                 st.error(f"❌ Nenhuma unidade disponível de **{recurso_selecionado}** para este horário.")
@@ -623,23 +623,28 @@ def sistema_principal():
             for item in cursor.fetchall():
                 st.warning(f"⚠️ **Insumo Crítico:** {item[0]} | Atual: {item[1]} {item[3]} (Mínimo: {item[2]} {item[3]})")
 
-            # FILA DE IMPRESSÃO
-            st.subheader("🖨️ Fila de Impressão Pendente")
+            # FILA DE IMPRESSÃO (INCLUI 'PENDENTE' E 'EM IMPRESSÃO')
+            st.subheader("🖨️ Fila de Impressão e Processamento")
             cursor.execute("""
-                SELECT S.id_solicitacao, U.nome, CAST(S.qtd AS INT), S.tipo_impressao, S.data_solicitacao, S.observacao, A.nome_arquivo, A.local_arquivo
+                SELECT S.id_solicitacao, U.nome, CAST(S.qtd AS INT), S.tipo_impressao, S.data_solicitacao, S.observacao, A.nome_arquivo, A.local_arquivo, S.status_atual
                 FROM Solicitacao S
                 LEFT JOIN Usuario U ON S.Usuario_id_usuario = U.id_usuario
                 LEFT JOIN Arquivo A ON S.Arquivo_id_arquivo = A.id_arquivo
-                WHERE S.tipo_origem = 'Impressão' AND S.status_atual = 'Pendente'
+                WHERE S.tipo_origem = 'Impressão' AND S.status_atual IN ('Pendente', 'Em Impressão')
+                ORDER BY S.id_solicitacao ASC
             """)
-            impressoes_pendentes = cursor.fetchall()
+            impressoes_fila = cursor.fetchall()
             
-            if impressoes_pendentes:
-                for item in impressoes_pendentes:
-                    imp_id, prof_nome, copias, cor, dt_nec, obs, nome_arq, dados_blob = item
-                    with st.expander(f"Impressão #{imp_id} - {prof_nome} - Qtd: {copias} ({cor})"):
+            if impressoes_fila:
+                for item in impressoes_fila:
+                    imp_id, prof_nome, copias, cor, dt_nec, obs, nome_arq, dados_blob, status_atual = item
+                    
+                    status_emoji = "⏳" if status_atual == "Pendente" else "🖨️"
+                    
+                    with st.expander(f"{status_emoji} Impressão #{imp_id} [{status_atual}] - {prof_nome} - {copias} cópias ({cor})"):
                         st.write(f"**Arquivo:** {nome_arq}")
                         st.write(f"**Para:** {dt_nec} | **Obs:** {obs}")
+                        st.write(f"**Status Atual:** `{status_atual}`")
                         
                         if dados_blob:
                             st.download_button(
@@ -649,20 +654,29 @@ def sistema_principal():
                                 key=f"dl_imp_{imp_id}"
                             )
                         
-                        col1, col2 = st.columns(2)
-                        if col1.button("✅ Concluir e Dar Baixa", key=f"ap_imp_{imp_id}"):
+                        st.divider()
+                        
+                        col1, col2, col3 = st.columns(3)
+                        
+                        if status_atual == "Pendente":
+                            if col1.button("▶️ Iniciar Impressão", key=f"proc_imp_{imp_id}"):
+                                cursor.execute("UPDATE Solicitacao SET status_atual = 'Em Impressão' WHERE id_solicitacao = ?", (imp_id,))
+                                conn.commit()
+                                st.rerun()
+
+                        if col2.button("✅ Concluir e Dar Baixa", key=f"ap_imp_{imp_id}"):
                             cursor.execute("UPDATE Solicitacao SET status_atual = 'Aprovada / Concluída' WHERE id_solicitacao = ?", (imp_id,))
                             cursor.execute("UPDATE Insumo SET qtd_estoque = MAX(0, qtd_estoque - ?) WHERE nome LIKE '%Papel A4%'", (copias,))
                             conn.commit()
-                            st.success("Aprovado e concluído!")
+                            st.success("Impressão finalizada e estoque atualizado!")
                             st.rerun()
                                 
-                        if col2.button("❌ Recusar", key=f"rec_imp_{imp_id}"):
+                        if col3.button("❌ Recusar", key=f"rec_imp_{imp_id}"):
                             cursor.execute("UPDATE Solicitacao SET status_atual = 'Recusada' WHERE id_solicitacao = ?", (imp_id,))
                             conn.commit()
                             st.rerun()
             else:
-                st.info("Nenhuma solicitação de impressão pendente.")
+                st.info("Nenhuma solicitação de impressão pendente ou em processo.")
 
             st.divider()
 
