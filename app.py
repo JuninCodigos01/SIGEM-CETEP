@@ -155,7 +155,7 @@ def inicializar_bd():
     if cursor.fetchone()[0] == 0:
         cursor.execute(
             "INSERT INTO Usuario (nome, email, telefone, tipo_usuario, senha) VALUES (?, ?, ?, ?, ?)",
-            ("Ryan", "ryan@gmail.com", "77999999999", "Administrador", "123")
+            ("DBA", "", "", "Administrador", "2525")
         )
 
     cursor.execute("SELECT COUNT(*) FROM Insumo")
@@ -163,17 +163,6 @@ def inicializar_bd():
         cursor.executemany(
             "INSERT INTO Insumo (nome, tipo, unidade_media, qtd_estoque, estoque_minimo) VALUES (?,?,?,?,?)",
             [
-                ("Papel A4", "Papelaria", "Unidades", 5000, 1000),
-                ("Toner HP Preto", "Suprimento", "Unidades", 10, 2),
-                ("Toner HP Colorido", "Suprimento", "Unidades", 5, 1),
-                ("Datashow", "Equipamento Tecnológico", "Unidades", 5, 1),
-                ("Controle da TV", "Equipamento Tecnológico", "Unidades", 4, 1),
-                ("Caixa de Som", "Equipamento Tecnológico", "Unidades", 3, 1),
-                ("Microfone", "Equipamento Tecnológico", "Unidades", 4, 1),
-                ("Bolas de Futebol", "Equipamento de Educação Física", "Unidades", 10, 2),
-                ("Bolas de Vôlei", "Equipamento de Educação Física", "Unidades", 8, 2),
-                ("Kits de Coletes", "Equipamento de Educação Física", "Unidades", 5, 1),
-                ("Cones de Treinamento", "Equipamento de Educação Física", "Unidades", 15, 3)
             ]
         )
 
@@ -311,7 +300,7 @@ def sistema_principal():
 
     # ABA 1: IMPRESSÃO
     with guias[0]:
-        st.header("🖨️ Solicitação de Impressão (Mecanografia)")
+        st.header("🖨️ Solicitação de Impressão")
         
         data_minima = date.today() + timedelta(days=2)
         st.info("ℹ️ **Anexe o arquivo que deseja imprimir no campo abaixo e preencha as especificações de impressão.**")
