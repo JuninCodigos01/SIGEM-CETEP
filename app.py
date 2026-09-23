@@ -168,7 +168,7 @@ def inicializar_bd():
     if cursor.fetchone()[0] == 0:
         cursor.execute(
             "INSERT INTO Usuario (nome, email, telefone, tipo_usuario, senha) VALUES (?, ?, ?, ?, ?)",
-            ("DBA", "", "", "Administrador", "2525")
+            ("DBA", "ryan@gmail.com", "77987654321", "Administrador", "2525")
         )
 
     cursor.execute("SELECT COUNT(*) FROM Insumo")
