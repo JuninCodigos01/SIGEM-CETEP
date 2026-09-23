@@ -4,8 +4,6 @@ import sqlite3
 from datetime import date, datetime, timedelta, time
 
 # CONFIGURAÇÃO DA PÁGINA (STREAMLIT)
-# Onde fica: No topo do script, executado na inicialização.
-# O que faz: Configura o título da aba do navegador, ícone e largura da página.
 st.set_page_config(
     page_title="SIGEM - Gestão Escolar & Mecanografia", 
     page_icon="🏫", 
@@ -13,259 +11,204 @@ st.set_page_config(
 )
 
 # 1. GERENCIAMENTO DO BANCO DE DADOS (SQLite3)
-# Onde fica: Seção inicial do script.
-# O que faz: Conecta ao arquivo 'escola.db' e cria exatamente 10 tabelas relacionais.
-
 def conectar_bd():
-    # Abre e retorna a conexão com o banco de dados SQLite 'escola.db'.
     conn = sqlite3.connect("escola.db", check_same_thread=False)
     return conn
 
 def inicializar_bd():
-    # Cria as 10 tabelas fundamentais do sistema e insere os dados padrão iniciais.
     conn = conectar_bd()
     cursor = conn.cursor()
     
     # Ativa o suporte a chaves estrangeiras no SQLite
     cursor.execute("PRAGMA foreign_keys = ON;")
 
-    # TABELA 1: Curso (Cadastro dos cursos oferecidos pela escola)
+    # 1. Tabela Curso
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS Curso (
-            id_curso INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome VARCHAR(100),
-            descricao VARCHAR(100)
-        )
+    CREATE TABLE IF NOT EXISTS Curso (
+        id_curso INTEGER PRIMARY KEY AUTOINCREMENT,
+        nome VARCHAR(100),
+        descricao VARCHAR(100)
+    );
     """)
 
-    # TABELA 2: Turma (Turmas vinculadas a um determinado Curso)
+    # 2. Tabela Turma
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS Turma (
-            id_turma INTEGER PRIMARY KEY AUTOINCREMENT,
-            Curso_id_curso INTEGER,
-            nome VARCHAR(100),
-            ano INTEGER,
-            turno VARCHAR(20),
-            FOREIGN KEY (Curso_id_curso) REFERENCES Curso(id_curso)
-        )
+    CREATE TABLE IF NOT EXISTS Turma (
+        id_turma INTEGER PRIMARY KEY AUTOINCREMENT,
+        Curso_id_curso INT,
+        nome VARCHAR(100),
+        ano INT,
+        turno VARCHAR(20),
+        FOREIGN KEY (Curso_id_curso) REFERENCES Curso(id_curso)
+    );
     """)
 
-    # TABELA 3: Usuario (Mapeamento geral de usuários do sistema escolar)
+    # 3. Tabela Usuario (com campo senha opcional)
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS Usuario (
-            id_usuario INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome VARCHAR(30),
-            email VARCHAR(100),
-            telefone VARCHAR(20),
-            tipo_usuario VARCHAR(30)
-        )
+    CREATE TABLE IF NOT EXISTS Usuario (
+        id_usuario INTEGER PRIMARY KEY AUTOINCREMENT,
+        nome VARCHAR(30),
+        email VARCHAR(100),
+        telefone VARCHAR(20),
+        tipo_usuario VARCHAR(30),
+        senha VARCHAR(100)
+    );
     """)
 
-    # TABELA 4: Arquivo (Metadados dos arquivos enviados para impressão)
+    # Garantir adição da coluna senha caso a tabela já existisse
+    try:
+        cursor.execute("ALTER TABLE Usuario ADD COLUMN senha VARCHAR(100);")
+    except sqlite3.OperationalError:
+        pass # Coluna já existe
+
+    # 4. Tabela Arquivo
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS Arquivo (
-            id_arquivo INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome_arquivo VARCHAR(255),
-            tipo_arquivo VARCHAR(50),
-            local_arquivo BLOB,
-            data_recebimento DATETIME
-        )
+    CREATE TABLE IF NOT EXISTS Arquivo (
+        id_arquivo INTEGER PRIMARY KEY AUTOINCREMENT,
+        nome_arquivo VARCHAR(255),
+        tipo_arquivo VARCHAR(50),
+        local_arquivo BLOB,
+        data_recebimento DATETIME
+    );
     """)
 
-    # TABELA 5: Solicitacao (Registro principal de solicitações de impressão)
+    # 5. Tabela Solicitacao
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS Solicitacao (
-            id_solicitacao INTEGER PRIMARY KEY AUTOINCREMENT,
-            Arquivo_id_arquivo INTEGER,
-            Usuario_id_usuario INTEGER,
-            tipo_origem VARCHAR(20),
-            qtd INTEGER,
-            tipo_impressao VARCHAR(30),
-            acabamento VARCHAR(100),
-            observacao INTEGER,
-            data_solicitacao DATETIME,
-            status_atual VARCHAR(30),
-            FOREIGN KEY (Arquivo_id_arquivo) REFERENCES Arquivo(id_arquivo),
-            FOREIGN KEY (Usuario_id_usuario) REFERENCES Usuario(id_usuario)
-        )
+    CREATE TABLE IF NOT EXISTS Solicitacao (
+        id_solicitacao INTEGER PRIMARY KEY AUTOINCREMENT,
+        Arquivo_id_arquivo INT,
+        Usuario_id_usuario INT,
+        tipo_origem VARCHAR(20),
+        qtd INT,
+        tipo_impressao VARCHAR(30),
+        acabamento VARCHAR(100),
+        observacao VARCHAR(255),
+        data_solicitacao DATETIME,
+        status_atual VARCHAR(30),
+        FOREIGN KEY (Arquivo_id_arquivo) REFERENCES Arquivo(id_arquivo),
+        FOREIGN KEY (Usuario_id_usuario) REFERENCES Usuario(id_usuario)
+    );
     """)
 
-    # TABELA 6: Disciplina (Disciplinas associadas aos Cursos e Solicitações)
+    # 6. Tabela Disciplina
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS Disciplina (
-            id_disciplina INTEGER PRIMARY KEY AUTOINCREMENT,
-            Curso_id_curso INTEGER,
-            Solicitacao_id_solicitacao INTEGER,
-            Solicitacao_Arquivo_id_arquivo INTEGER,
-            Solicitacao_Usuario_id_usuario INTEGER,
-            nome VARCHAR(100),
-            FOREIGN KEY (Curso_id_curso) REFERENCES Curso(id_curso),
-            FOREIGN KEY (Solicitacao_id_solicitacao) REFERENCES Solicitacao(id_solicitacao)
-        )
+    CREATE TABLE IF NOT EXISTS Disciplina (
+        id_disciplina INTEGER PRIMARY KEY AUTOINCREMENT,
+        Curso_id_curso INT,
+        Solicitacao_id_solicitacao INT,
+        Solicitacao_Arquivo_id_arquivo INT,
+        Solicitacao_Usuario_id_usuario INT,
+        nome VARCHAR(100),
+        FOREIGN KEY (Curso_id_curso) REFERENCES Curso(id_curso),
+        FOREIGN KEY (Solicitacao_id_solicitacao) REFERENCES Solicitacao(id_solicitacao),
+        FOREIGN KEY (Solicitacao_Arquivo_id_arquivo) REFERENCES Arquivo(id_arquivo),
+        FOREIGN KEY (Solicitacao_Usuario_id_usuario) REFERENCES Usuario(id_usuario)
+    );
     """)
 
-    # TABELA 7: Email (Rastreio de notificações por e-mail enviadas às solicitações)
+    # 7. Tabela email
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS Email (
-            id_email INTEGER PRIMARY KEY AUTOINCREMENT,
-            Solicitacao_id_solicitacao INTEGER,
-            Solicitacao_Arquivo_id_arquivo INTEGER,
-            Solicitacao_Usuario_id_usuario INTEGER,
-            email_remetente VARCHAR(150),
-            assunto VARCHAR(255),
-            data_recebimento DATETIME,
-            identificador_email VARCHAR(255),
-            FOREIGN KEY (Solicitacao_id_solicitacao) REFERENCES Solicitacao(id_solicitacao)
-        )
+    CREATE TABLE IF NOT EXISTS email (
+        id_email INTEGER PRIMARY KEY AUTOINCREMENT,
+        Solicitacao_id_solicitacao INT,
+        Solicitacao_Arquivo_id_arquivo INT,
+        Solicitacao_Usuario_id_usuario INT,
+        email_remetente VARCHAR(150),
+        assunto VARCHAR(255),
+        data_recebimento DATETIME,
+        identificador_email VARCHAR(255),
+        FOREIGN KEY (Solicitacao_id_solicitacao) REFERENCES Solicitacao(id_solicitacao),
+        FOREIGN KEY (Solicitacao_Arquivo_id_arquivo) REFERENCES Arquivo(id_arquivo),
+        FOREIGN KEY (Solicitacao_Usuario_id_usuario) REFERENCES Usuario(id_usuario)
+    );
     """)
 
-    # TABELA 8: Historico_Status (Histórico de mudanças de status das solicitações)
+    # 8. Tabela Historico_Status
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS Historico_Status (
-            id_historico INTEGER PRIMARY KEY AUTOINCREMENT,
-            Solicitacao_id_solicitacao INTEGER,
-            FOREIGN KEY (Solicitacao_id_solicitacao) REFERENCES Solicitacao(id_solicitacao)
-        )
+    CREATE TABLE IF NOT EXISTS Historico_Status (
+        id_historico INTEGER PRIMARY KEY AUTOINCREMENT,
+        Solicitacao_id_solicitacao INT,
+        Solicitacao_Arquivo_id_arquivo INT,
+        Solicitacao_Usuario_id_usuario INT,
+        FOREIGN KEY (Solicitacao_id_solicitacao) REFERENCES Solicitacao(id_solicitacao),
+        FOREIGN KEY (Solicitacao_Arquivo_id_arquivo) REFERENCES Arquivo(id_arquivo),
+        FOREIGN KEY (Solicitacao_Usuario_id_usuario) REFERENCES Usuario(id_usuario)
+    );
     """)
 
-    # TABELA 9: insumos (Estoque de papéis, toners e suprimentos da mecanografia)
+    # 9. Tabela Insumo
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS insumos (
-            codigo INTEGER PRIMARY KEY AUTOINCREMENT,
-            descricao TEXT UNIQUE,
-            qtd_estoque INTEGER,
-            qtd_minima INTEGER,
-            unidade TEXT
-        )
+    CREATE TABLE IF NOT EXISTS Insumo (
+        id_insumo INTEGER PRIMARY KEY AUTOINCREMENT,
+        nome VARCHAR(100),
+        tipo VARCHAR(50),
+        unidade_media VARCHAR(20),
+        qtd_estoque DECIMAL(10,2),
+        estoque_minimo DECIMAL(10,2)
+    );
     """)
 
-    # TABELA 10: Mov_Estoque (Registro de movimentações de entrada/saída de insumos)
+    # 10. Tabela Mov_Estoque
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS Mov_Estoque (
-            id_movimentacao INTEGER PRIMARY KEY AUTOINCREMENT,
-            Usuario_id_usuario INTEGER,
-            Insumo_id_insumo INTEGER,
-            qtd DECIMAL(10,2),
-            tipo_movimentacao VARCHAR(10),
-            data_movimentacao DATETIME,
-            observacao VARCHAR(255),
-            FOREIGN KEY (Usuario_id_usuario) REFERENCES Usuario(id_usuario),
-            FOREIGN KEY (Insumo_id_insumo) REFERENCES insumos(codigo)
-        )
+    CREATE TABLE IF NOT EXISTS Mov_Estoque (
+        id_movimentacao INTEGER PRIMARY KEY AUTOINCREMENT,
+        Usuario_id_usuario INT,
+        Insumo_id_insumo INT,
+        tipo_movimentacao VARCHAR(10),
+        qtd DECIMAL(10,2),
+        data_movimentacao DATETIME,
+        observacao VARCHAR(255),
+        FOREIGN KEY (Usuario_id_usuario) REFERENCES Usuario(id_usuario),
+        FOREIGN KEY (Insumo_id_insumo) REFERENCES Insumo(id_insumo)
+    );
     """)
 
-    # TABELAS DE APOIO/INTERFACE (Mantidas para pleno funcionamento dos formulários)
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS usuarios (
-            login TEXT PRIMARY KEY,
-            senha TEXT,
-            nivel TEXT,
-            nome TEXT,
-            email TEXT
+    # POPULA DADOS INICIAIS DE FORMA SEGURA
+    cursor.execute("SELECT COUNT(*) FROM Usuario")
+    if cursor.fetchone()[0] == 0:
+        cursor.execute(
+            "INSERT INTO Usuario (nome, email, telefone, tipo_usuario, senha) VALUES (?, ?, ?, ?, ?)",
+            ("DBA", "", "", "Administrador", "2525")
         )
-    """)
-    
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS reservas (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            solicitante TEXT,
-            nivel TEXT,
-            tipo TEXT,
-            recurso TEXT,
-            quantidade INTEGER,
-            data_reserva TEXT,
-            horario TEXT,
-            observacao TEXT,
-            status TEXT
+
+    cursor.execute("SELECT COUNT(*) FROM Insumo")
+    if cursor.fetchone()[0] == 0:
+        cursor.executemany(
+            "INSERT INTO Insumo (nome, tipo, unidade_media, qtd_estoque, estoque_minimo) VALUES (?,?,?,?,?)",
+            [
+            ]
         )
-    """)
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS impressoes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            solicitante TEXT,
-            email TEXT,
-            tipo_documento TEXT,
-            data_necessidade TEXT,
-            copias INTEGER,
-            cor TEXT,
-            observacao TEXT,
-            status TEXT
-        )
-    """)
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS equipamentos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT UNIQUE,
-            categoria TEXT,
-            qtd_total INTEGER
-        )
-    """)
-
-    # Inserção de Usuário Padrão (Administrador)
-    cursor.executemany(
-        "INSERT OR IGNORE INTO usuarios VALUES (?,?,?,?,?)",
-        [("DBA", "2525", "Administrador", "Ryan", "ryan@gmail.com")]
-    )
-
-    # Inserção de Insumos Padrão
-    cursor.executemany(
-        "INSERT OR IGNORE INTO insumos (descricao, qtd_estoque, qtd_minima, unidade) VALUES (?,?,?,?)",
-        [
-            ("Papel A4 (Folhas)", 5000, 1000, "Unidades"),
-            ("Toner HP Preto", 10, 2, "Unidades"),
-            ("Toner HP Colorido", 5, 1, "Unidades")
-        ]
-    )
-
-    # Inserção de Equipamentos Padrão
-    cursor.executemany(
-        "INSERT OR IGNORE INTO equipamentos (nome, categoria, qtd_total) VALUES (?,?,?)",
-        [
-            ("Datashow", "Equipamento Tecnológico", 5),
-            ("Controle da TV", "Equipamento Tecnológico", 4),
-            ("Caixa de Som", "Equipamento Tecnológico", 3),
-            ("Microfone", "Equipamento Tecnológico", 4),
-            ("Bolas de Futebol", "Equipamento de Educação Física", 10),
-            ("Bolas de Vôlei", "Equipamento de Educação Física", 8),
-            ("Kits de Coletes", "Equipamento de Educação Física", 5),
-            ("Cones de Treinamento", "Equipamento de Educação Física", 15)
-        ]
-    )
 
     conn.commit()
     conn.close()
 
-# Executa a inicialização do banco ao carregar o arquivo
 inicializar_bd()
 
-# Inicializa as variáveis de controle da sessão (Session State)
+# Inicialização do Session State
 if "logado" not in st.session_state:
     st.session_state.logado = False
+    st.session_state.usuario_id = None
     st.session_state.usuario_atual = None
     st.session_state.nivel_acesso = None
     st.session_state.nome_usuario = None
     st.session_state.email_usuario = None
 
-# 2. FUNÇÕES AUXILIARES DE REGRAS DE NEGÓCIO E VALIDAÇÃO
-# Onde fica: Bloco intermediário entre BD e Interface.
-# O que faz: Verifica disponibilidade de horários e consulta saldos de materiais.
-
+# 2. FUNÇÕES AUXILIARES
 def obter_estoque_equipamentos():
-    # Retorna um dicionário contendo o nome e a quantidade atual dos equipamentos.
     conn = conectar_bd()
     cursor = conn.cursor()
-    cursor.execute("SELECT nome, qtd_total FROM equipamentos")
+    cursor.execute("SELECT nome, qtd_estoque FROM Insumo WHERE tipo LIKE 'Equipamento%'")
     dados = cursor.fetchall()
     conn.close()
-    return {row[0]: row[1] for row in dados}
+    return {row[0]: int(row[1]) for row in dados}
 
 def verificar_conflito_reserva(recurso, data_str, h_inicio, h_fim):
-    # Verifica se um determinado recurso/espaço já possui reserva no mesmo horário.
     conn = conectar_bd()
     cursor = conn.cursor()
-    cursor.execute("SELECT horario, status FROM reservas WHERE recurso = ? AND data_reserva = ? AND status IN ('Aprovada', 'Pendente')", (recurso, data_str))
+    cursor.execute("""
+        SELECT observacao, status_atual FROM Solicitacao 
+        WHERE acabamento = ? AND data_solicitacao = ? AND status_atual IN ('Aprovada', 'Pendente')
+    """, (recurso, data_str))
     reservas = cursor.fetchall()
     conn.close()
 
@@ -282,10 +225,12 @@ def verificar_conflito_reserva(recurso, data_str, h_inicio, h_fim):
     return False, "", ""
 
 def obter_quantidade_reservada(recurso, data_str, h_inicio, h_fim):
-    # Calcula a quantidade de um determinado equipamento já agendado para o horário.
     conn = conectar_bd()
     cursor = conn.cursor()
-    cursor.execute("SELECT quantidade, horario FROM reservas WHERE recurso = ? AND data_reserva = ? AND status IN ('Aprovada', 'Pendente')", (recurso, data_str))
+    cursor.execute("""
+        SELECT qtd, observacao FROM Solicitacao 
+        WHERE acabamento = ? AND data_solicitacao = ? AND status_atual IN ('Aprovada', 'Pendente')
+    """, (recurso, data_str))
     reservas = cursor.fetchall()
     conn.close()
 
@@ -303,42 +248,40 @@ def obter_quantidade_reservada(recurso, data_str, h_inicio, h_fim):
     return total
 
 # 3. TELA DE LOGIN
-# Onde fica: Função executada quando st.session_state.logado for False.
-# O que faz: Autentica o usuário no banco e armazena os dados na sessão.
-
 def tela_login():
     st.title("🏫 Sistema Integrado de Gestão e Mecanografia (SIGEM)")
     
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.subheader("🔑 Acesso ao Sistema")
-        usuario_input = st.text_input("Usuário:")
+        usuario_input = st.text_input("Nome do Usuário:")
         senha_input = st.text_input("Senha:", type="password")
         
         if st.button("Entrar", use_container_width=True):
             conn = conectar_bd()
             cursor = conn.cursor()
-            cursor.execute("SELECT senha, nivel, nome, email FROM usuarios WHERE login = ?", (usuario_input,))
+            cursor.execute("SELECT id_usuario, tipo_usuario, nome, email, senha FROM Usuario WHERE LOWER(nome) = LOWER(?)", (usuario_input.strip(),))
             user = cursor.fetchone()
             conn.close()
             
-            if user and user[0] == senha_input:
-                st.session_state.logado = True
-                st.session_state.usuario_atual = usuario_input
-                st.session_state.nivel_acesso = user[1]
-                st.session_state.nome_usuario = user[2]
-                st.session_state.email_usuario = user[3]
-                st.success(f"Bem-vindo(a), {st.session_state.nome_usuario}!")
-                st.rerun()
+            if user:
+                id_u, tipo_u, nome_u, email_u, senha_u = user
+                if senha_u and senha_u != senha_input:
+                    st.error("Senha incorreta.")
+                else:
+                    st.session_state.logado = True
+                    st.session_state.usuario_id = id_u
+                    st.session_state.usuario_atual = email_u
+                    st.session_state.nivel_acesso = tipo_u
+                    st.session_state.nome_usuario = nome_u
+                    st.session_state.email_usuario = email_u
+                    st.success(f"Bem-vindo(a), {st.session_state.nome_usuario}!")
+                    st.rerun()
             else:
-                st.error("Usuário ou senha incorretos.")
+                st.error("Usuário não encontrado.")
 
-# 4. SISTEMA PRINCIPAL (PAINEL DE CONTROL)
-# Onde fica: Função executada após autenticação do usuário.
-# O que faz: Exibe a barra lateral, abas de solicitação, reserva e gestão.
-
+# 4. SISTEMA PRINCIPAL
 def sistema_principal():
-    # BARRA LATERAL (Perfil do Usuário Logado)
     st.sidebar.title("👤 Perfil do Usuário")
     st.sidebar.write(f"**Nome:** {st.session_state.nome_usuario}")
     st.sidebar.write(f"**E-mail:** {st.session_state.email_usuario}")
@@ -350,21 +293,18 @@ def sistema_principal():
 
     st.title("📌 Painel de Gestão e Pedidos")
 
-    # ESTRUTURA DE ABAS
     abas = ["🖨️ Solicitar Impressão", "📅 Reservar Recursos", "📋 Painel de Solicitações"]
     if st.session_state.nivel_acesso in ["Administrador", "Coordenação"]:
         abas.append("📊 Gestão da Coordenação")
         
     guias = st.tabs(abas)
 
-    # ABA 1: SOLICITAR IMPRESSÃO (Professores / Usuários)
-    # Onde fica: Guia[0]
-    # O que faz: Coleta dados e insere novas solicitações na tabela impressoes.
+    # ABA 1: IMPRESSÃO (COM UPLOAD DE ARQUIVOS)
     with guias[0]:
         st.header("🖨️ Solicitação de Impressão (Mecanografia)")
         
         data_minima = date.today() + timedelta(days=2)
-        st.info("ℹ **Antes de fazer sua solicitação, envie o arquivo no e-mail. Essas informações serão necessárias apenas para confirmar sua identidade.**")
+        st.info("ℹ️ **Anexe o arquivo que deseja imprimir no campo abaixo e preencha as especificações de impressão.**")
         
         with st.form("form_impressao", clear_on_submit=True):
             col1, col2 = st.columns(2)
@@ -372,11 +312,12 @@ def sistema_principal():
             with col1:
                 st.text_input("Solicitante Cadastrado:", value=st.session_state.nome_usuario, disabled=True)
                 email_prof = st.text_input("E-mail de Contato:", value=st.session_state.email_usuario)
-                tipo_documento = st.selectbox(
-                    "Tipo de Documento:", 
-                    [".pdf", ".png", ".jpg", ".txt(Texto)", ".docx(Word)", ".pptx(PowerPoint)", ".xlsx(Excel)", "Outro"],
-                    index=None,
-                    placeholder="Selecione um formato..."
+                
+                # NOVO: UPLOAD DE QUALQUER TIPO DE ARQUIVO
+                arquivo_enviado = st.file_uploader(
+                    "Upload do Arquivo para Impressão:", 
+                    type=None,  # Permite todos os formatos de arquivo (pdf, docx, xlsx, png, jpg, etc.)
+                    help="Suporta PDF, Word, Excel, imagens, textos, etc."
                 )
                 
             with col2:
@@ -389,30 +330,53 @@ def sistema_principal():
             btn_enviar_impressao = st.form_submit_button("Enviar Solicitação de Impressão")
 
             if btn_enviar_impressao:
-                if not tipo_documento:
-                    st.error("❌ Por favor, selecione o tipo de documento antes de enviar.")
+                if arquivo_enviado is None:
+                    st.error("❌ Por favor, selecione e faça o upload de um arquivo antes de enviar.")
                 else:
+                    # Ler o conteúdo em bytes para armazenar no BD
+                    conteudo_bytes = arquivo_enviado.read()
+                    nome_arq = arquivo_enviado.name
+                    extensao = nome_arq.split('.')[-1].lower() if '.' in nome_arq else "desconhecido"
+
                     conn = conectar_bd()
                     cursor = conn.cursor()
+                    
                     cursor.execute("""
-                        INSERT INTO impressoes (solicitante, email, tipo_documento, data_necessidade, copias, cor, observacao, status)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        INSERT INTO Arquivo (nome_arquivo, tipo_arquivo, local_arquivo, data_recebimento)
+                        VALUES (?, ?, ?, ?)
+                    """, (nome_arq, extensao, conteudo_bytes, datetime.now()))
+                    id_arq = cursor.lastrowid
+
+                    cursor.execute("""
+                        INSERT INTO Solicitacao (
+                            Arquivo_id_arquivo, Usuario_id_usuario, tipo_origem, 
+                            qtd, tipo_impressao, acabamento, observacao, data_solicitacao, status_atual
+                        )
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
-                        st.session_state.nome_usuario, email_prof, tipo_documento, 
-                        data_necessidade.strftime("%d/%m/%Y"), qtd_copias, formato_cor, 
-                        obs_impressao if obs_impressao else "Sem observações", "Pendente"
+                        id_arq, st.session_state.usuario_id, "Impressão",
+                        qtd_copias, formato_cor, "Mecanografia", obs_impressao if obs_impressao else "Sem observações",
+                        data_necessidade.strftime("%Y-%m-%d"), "Pendente"
                     ))
+                    
+                    id_sol = cursor.lastrowid
+                    cursor.execute("""
+                        INSERT INTO Historico_Status (Solicitacao_id_solicitacao, Solicitacao_Arquivo_id_arquivo, Solicitacao_Usuario_id_usuario) 
+                        VALUES (?, ?, ?)
+                    """, (id_sol, id_arq, st.session_state.usuario_id))
+                    
                     conn.commit()
                     conn.close()
 
-                    st.success("✅ Solicitação gravada no banco de dados com sucesso!")
+                    st.success(f"✅ Solicitação do arquivo **{nome_arq}** enviada com sucesso!")
 
-    # ABA 2: RESERVAR RECURSOS (Laboratórios e Materiais)
-    # Onde fica: Guia[1]
-    # O que faz: Realiza agendamentos na tabela reservas com checagem de horário/estoque.
+    # ABA 2: RESERVAR RECURSOS (COM IDENTIFICAÇÃO DO PROFESSOR)
     with guias[1]:
         st.header("Realizar Reserva de Recursos")
         
+        # EXIBIÇÃO DA IDENTIFICAÇÃO DO PROFESSOR RESPONSÁVEL
+        st.info(f"👤 **Professor/Responsável pela Reserva:** {st.session_state.nome_usuario} ({st.session_state.email_usuario})")
+
         tipo_reserva = st.selectbox(
             "O que você deseja reservar?",
             ["Laboratório", "Equipamento Tecnológico", "Equipamento de Educação Física"]
@@ -422,6 +386,8 @@ def sistema_principal():
             col1, col2 = st.columns(2)
             
             with col1:
+                # IDENTIFICAÇÃO DO SOLICITANTE NO PRÓPRIO FORMULÁRIO
+                st.text_input("Professor Solicitante:", value=st.session_state.nome_usuario, disabled=True)
                 data_reserva = st.date_input("Data da Reserva:", min_value=date.today())
                 hora_inicio = st.time_input("Horário de Início:", value=time(7, 30))
                 hora_fim = st.time_input("Horário de Término:", value=time(8, 20))
@@ -442,7 +408,7 @@ def sistema_principal():
                 elif tipo_reserva in ["Equipamento Tecnológico", "Equipamento de Educação Física"]:
                     conn = conectar_bd()
                     cursor = conn.cursor()
-                    cursor.execute("SELECT nome FROM equipamentos WHERE categoria = ?", (tipo_reserva,))
+                    cursor.execute("SELECT nome FROM Insumo WHERE tipo = ?", (tipo_reserva,))
                     opcoes = [r[0] for r in cursor.fetchall()]
                     conn.close()
 
@@ -454,7 +420,7 @@ def sistema_principal():
                         estoque_dict = obter_estoque_equipamentos()
                         max_total = estoque_dict.get(recurso_selecionado, 0)
                         
-                        ja_reservados = obter_quantidade_reservada(recurso_selecionado, data_reserva.strftime("%d/%m/%Y"), hora_inicio, hora_fim)
+                        ja_reservados = obter_quantidade_reservada(recurso_selecionado, data_reserva.strftime("%Y-%m-%d"), hora_inicio, hora_fim)
                         disp_real = max(0, max_total - ja_reservados)
                         
                         if disp_real > 0:
@@ -472,7 +438,8 @@ def sistema_principal():
                 elif qtd_reservada <= 0:
                     st.error("❌ Quantidade indisponível para reserva.")
                 else:
-                    data_formatted = data_reserva.strftime("%d/%m/%Y")
+                    data_formatted = data_reserva.strftime("%Y-%m-%d")
+                    horario_str = f"{hora_inicio.strftime('%H:%M')} às {hora_fim.strftime('%H:%M')}"
                     em_uso, hor_conf, status_conf = verificar_conflito_reserva(recurso_selecionado, data_formatted, hora_inicio, hora_fim)
                     
                     if tipo_reserva == "Laboratório" and em_uso:
@@ -480,46 +447,75 @@ def sistema_principal():
                     else:
                         conn = conectar_bd()
                         cursor = conn.cursor()
+                        
+                        # Adiciona o nome do professor no campo observação para facilitar rastreamento rápido
+                        obs_com_prof = f"Professor: {st.session_state.nome_usuario} | Horário: {horario_str} | Obs: {observacao if observacao else 'Sem obs'}"
+                        
                         cursor.execute("""
-                            INSERT INTO reservas (solicitante, nivel, tipo, recurso, quantidade, data_reserva, horario, observacao, status)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            INSERT INTO Solicitacao (
+                                Usuario_id_usuario, tipo_origem, qtd, tipo_impressao, 
+                                acabamento, observacao, data_solicitacao, status_atual
+                            )
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                         """, (
-                            st.session_state.nome_usuario, st.session_state.nivel_acesso,
-                            tipo_reserva, recurso_selecionado, qtd_reservada,
-                            data_formatted, f"{hora_inicio.strftime('%H:%M')} às {hora_fim.strftime('%H:%M')}",
-                            observacao if observacao else "Nenhuma", "Pendente"
+                            st.session_state.usuario_id, tipo_reserva, qtd_reservada,
+                            "Reserva de Recurso", recurso_selecionado, obs_com_prof,
+                            data_formatted, "Pendente"
                         ))
                         conn.commit()
                         conn.close()
-                        st.success("✅ Reserva gravada com sucesso!")
+                        st.success(f"✅ Reserva de **{recurso_selecionado}** realizada em nome do prof. **{st.session_state.nome_usuario}**!")
 
-    # ABA 3: PAINEL DE SOLICITAÇÕES (Visualização do Histórico)
-    # Onde fica: Guia[2]
-    # O que faz: Exibe relatórios formatados do que foi solicitado pelo usuário/escola.
+    # ABA 3: HISTÓRICO DE SOLICITAÇÕES
     with guias[2]:
         st.header("📋 Histórico de Pedidos e Reservas")
         conn = conectar_bd()
         
         st.subheader("🖨️ Solicitações de Impressão Enviadas")
         if st.session_state.nivel_acesso == "Professor":
-            query_imp = "SELECT * FROM impressoes WHERE LOWER(email) = LOWER(?) OR LOWER(solicitante) = LOWER(?)"
-            df_imp = pd.read_sql_query(query_imp, conn, params=(st.session_state.email_usuario, st.session_state.nome_usuario))
+            query_imp = """
+                SELECT S.id_solicitacao AS 'ID', A.nome_arquivo AS 'Arquivo', S.qtd AS 'Cópias', 
+                       S.tipo_impressao AS 'Tipo', S.data_solicitacao AS 'Data Necessidade', S.status_atual AS 'Status'
+                FROM Solicitacao S
+                LEFT JOIN Arquivo A ON S.Arquivo_id_arquivo = A.id_arquivo
+                WHERE S.Usuario_id_usuario = ? AND S.tipo_origem = 'Impressão'
+            """
+            df_imp = pd.read_sql_query(query_imp, conn, params=(st.session_state.usuario_id,))
         else:
-            df_imp = pd.read_sql_query("SELECT * FROM impressoes", conn)
+            query_imp = """
+                SELECT S.id_solicitacao AS 'ID', U.nome AS 'Professor', A.nome_arquivo AS 'Arquivo', 
+                       S.qtd AS 'Cópias', S.tipo_impressao AS 'Tipo', S.data_solicitacao AS 'Data', S.status_atual AS 'Status'
+                FROM Solicitacao S
+                LEFT JOIN Arquivo A ON S.Arquivo_id_arquivo = A.id_arquivo
+                LEFT JOIN Usuario U ON S.Usuario_id_usuario = U.id_usuario
+                WHERE S.tipo_origem = 'Impressão'
+            """
+            df_imp = pd.read_sql_query(query_imp, conn)
             
         if not df_imp.empty:
             st.dataframe(df_imp, use_container_width=True)
         else:
-            st.info("Nenhuma solicitação encontrada.")
+            st.info("Nenhuma solicitação de impressão encontrada.")
 
         st.divider()
 
         st.subheader("📅 Reservas de Recursos (Laboratórios/Materiais)")
         if st.session_state.nivel_acesso == "Professor":
-            query_res = "SELECT * FROM reservas WHERE LOWER(solicitante) = LOWER(?)"
-            df_res = pd.read_sql_query(query_res, conn, params=(st.session_state.nome_usuario,))
+            query_res = """
+                SELECT id_solicitacao AS 'ID', acabamento AS 'Recurso/Espaço', qtd AS 'Qtd', 
+                       data_solicitacao AS 'Data Reserva', observacao AS 'Detalhes/Professor', status_atual AS 'Status'
+                FROM Solicitacao WHERE Usuario_id_usuario = ? AND tipo_origem != 'Impressão'
+            """
+            df_res = pd.read_sql_query(query_res, conn, params=(st.session_state.usuario_id,))
         else:
-            df_res = pd.read_sql_query("SELECT * FROM reservas", conn)
+            query_res = """
+                SELECT S.id_solicitacao AS 'ID', U.nome AS 'Professor', S.acabamento AS 'Recurso/Espaço', 
+                       S.qtd AS 'Qtd', S.data_solicitacao AS 'Data Reserva', S.observacao AS 'Detalhes', S.status_atual AS 'Status'
+                FROM Solicitacao S
+                LEFT JOIN Usuario U ON S.Usuario_id_usuario = U.id_usuario
+                WHERE S.tipo_origem != 'Impressão'
+            """
+            df_res = pd.read_sql_query(query_res, conn)
 
         if not df_res.empty:
             st.dataframe(df_res, use_container_width=True)
@@ -527,107 +523,102 @@ def sistema_principal():
             st.info("Nenhuma reserva encontrada.")
         conn.close()
 
-    # ABA 4: GESTÃO DA COORDENAÇÃO E MECANOGRAFIA
-    # Onde fica: Guia[3] (Visível apenas para Administrador/Coordenação)
-    # O que faz: Aprova/recusa solicitações, gerencia usuários, insumos e equipamentos.
+    # ABA 4: GESTÃO
     if st.session_state.nivel_acesso in ["Administrador", "Coordenação"]:
         with guias[3]:
             st.header("⚙️ Controle de Mecanografia e Gestão de Pedidos")
             conn = conectar_bd()
             cursor = conn.cursor()
             
-            # SEÇÃO: Gestão de Usuários e Professores
+            # GESTÃO DE USUÁRIOS
             st.subheader("👥 Gestão de Usuários e Professores")
-            df_usuarios = pd.read_sql_query("SELECT login AS 'Login', nome AS 'Nome Completo', email AS 'E-mail', nivel AS 'Nível de Acesso' FROM usuarios", conn)
+            df_usuarios = pd.read_sql_query("SELECT id_usuario AS 'ID', nome AS 'Nome Completo', email AS 'E-mail', telefone AS 'Telefone', tipo_usuario AS 'Nível de Acesso' FROM Usuario", conn)
             st.dataframe(df_usuarios, use_container_width=True)
 
             col_u1, col_u2 = st.columns(2)
-            
-            # Sub-bloco: Adicionar Usuários
             with col_u1:
                 with st.expander("➕ Adicionar Novo Usuário"):
                     with st.form("form_novo_usuario", clear_on_submit=True):
-                        nov_login = st.text_input("Login:")
                         nov_nome = st.text_input("Nome Completo:")
                         nov_email = st.text_input("E-mail:")
-                        nov_senha = st.text_input("Senha Inicial:", type="password")
+                        nov_tel = st.text_input("Telefone:")
                         nov_nivel = st.selectbox("Nível de Acesso:", ["Professor", "Coordenação", "Administrador"])
+                        nov_senha = st.text_input("Senha (Opcional):", type="password")
                         
                         if st.form_submit_button("Cadastrar Usuário"):
-                            if not nov_login or not nov_senha or not nov_nome:
-                                st.error("❌ Preencha todos os campos obrigatórios.")
+                            if not nov_nome:
+                                st.error("❌ Preencha o nome do usuário.")
                             else:
-                                try:
-                                    cursor.execute("INSERT INTO usuarios VALUES (?, ?, ?, ?, ?)", (nov_login, nov_senha, nov_nivel, nov_nome, nov_email))
-                                    conn.commit()
-                                    st.success(f"✅ Usuário **{nov_nome}** ({nov_nivel}) cadastrado!")
-                                    st.rerun()
-                                except sqlite3.IntegrityError:
-                                    st.error("❌ Login já cadastrado.")
+                                cursor.execute(
+                                    "INSERT INTO Usuario (nome, email, telefone, tipo_usuario, senha) VALUES (?, ?, ?, ?, ?)", 
+                                    (nov_nome, nov_email, nov_tel, nov_nivel, nov_senha if nov_senha else None)
+                                )
+                                conn.commit()
+                                st.success(f"✅ Usuário **{nov_nome}** ({nov_nivel}) cadastrado!")
+                                st.rerun()
 
-            # Sub-bloco: Remover Usuários (Com segurança reforçada para Admin)
             with col_u2:
                 with st.expander("🗑️ Remover Usuário Cadastrado"):
-                    cursor.execute("SELECT login, nome, nivel, senha FROM usuarios")
+                    cursor.execute("SELECT id_usuario, nome, email FROM Usuario")
                     todos_usuarios = cursor.fetchall()
-                    
-                    dict_usuarios = {f"{nome} ({login} - {nivel})": (login, nivel, senha) for login, nome, nivel, senha in todos_usuarios}
+                    dict_usuarios = {f"{nome} ({email})": id_u for id_u, nome, email in todos_usuarios}
                     
                     if dict_usuarios:
                         user_sel = st.selectbox("Selecione o Usuário para Excluir:", list(dict_usuarios.keys()))
-                        login_excluir, nivel_excluir, senha_excluir = dict_usuarios[user_sel]
+                        id_excluir = dict_usuarios[user_sel]
                         
-                        senha_confirmacao = ""
-                        if nivel_excluir == "Administrador":
-                            st.warning("⚠️ **Atenção:** Este usuário é um **Administrador**. Insira a senha dele para confirmar a exclusão.")
-                            senha_confirmacao = st.text_input("Senha do Administrador a ser removido:", type="password", key="pwd_confirm_del")
-
                         if st.button("❌ Confirmar Exclusão do Usuário", type="primary"):
-                            if login_excluir == st.session_state.usuario_atual:
+                            if id_excluir == st.session_state.usuario_id:
                                 st.error("❌ Você não pode excluir o seu próprio usuário enquanto estiver conectado!")
-                            elif nivel_excluir == "Administrador" and senha_confirmacao != senha_excluir:
-                                st.error("❌ Senha incorreta! A exclusão do Administrador foi cancelada.")
                             else:
-                                cursor.execute("DELETE FROM usuarios WHERE login = ?", (login_excluir,))
+                                cursor.execute("DELETE FROM Usuario WHERE id_usuario = ?", (id_excluir,))
                                 conn.commit()
-                                st.warning(f"Usuário **{login_excluir}** foi removido do sistema com sucesso.")
+                                st.warning("Usuário foi removido do sistema com sucesso.")
                                 st.rerun()
 
             st.divider()
 
-            # SEÇÃO: Alertas Críticos de Insumos
-            cursor.execute("SELECT descricao, qtd_estoque, qtd_minima, unidade FROM insumos WHERE qtd_estoque <= qtd_minima")
+            # ALERTAS DE INSUMOS
+            cursor.execute("SELECT nome, qtd_estoque, estoque_minimo, unidade_media FROM Insumo WHERE qtd_estoque <= estoque_minimo")
             for item in cursor.fetchall():
                 st.warning(f"⚠️ **Insumo Crítico:** {item[0]} | Atual: {item[1]} {item[3]} (Mínimo: {item[2]} {item[3]})")
 
-            # SEÇÃO: Aprovação e Dar Baixa da Fila de Impressão
+            # FILA DE IMPRESSÃO (COM BOTÃO DE DOWNLOAD DO ARQUIVO)
             st.subheader("🖨️ Fila de Impressão Pendente")
-            cursor.execute("SELECT * FROM impressoes WHERE status = 'Pendente'")
+            cursor.execute("""
+                SELECT S.id_solicitacao, U.nome, S.qtd, S.tipo_impressao, S.data_solicitacao, S.observacao, A.nome_arquivo, A.local_arquivo
+                FROM Solicitacao S
+                LEFT JOIN Usuario U ON S.Usuario_id_usuario = U.id_usuario
+                LEFT JOIN Arquivo A ON S.Arquivo_id_arquivo = A.id_arquivo
+                WHERE S.tipo_origem = 'Impressão' AND S.status_atual = 'Pendente'
+            """)
             impressoes_pendentes = cursor.fetchall()
             
             if impressoes_pendentes:
                 for item in impressoes_pendentes:
-                    imp_id, solicitante, email, tipo_doc, dt_necessidade, copias, cor, obs, status = item
-                    with st.expander(f"Impressão #{imp_id} - {solicitante} ({tipo_doc})"):
-                        st.write(f"**Para:** {dt_necessidade} | **Cópias:** {copias} ({cor})")
-                        col1, col2 = st.columns(2)
+                    imp_id, prof_nome, copias, cor, dt_nec, obs, nome_arq, dados_blob = item
+                    with st.expander(f"Impressão #{imp_id} - {prof_nome} - Qtd: {copias} ({cor})"):
+                        st.write(f"**Arquivo:** {nome_arq}")
+                        st.write(f"**Para:** {dt_nec} | **Obs:** {obs}")
                         
+                        if dados_blob:
+                            st.download_button(
+                                label=f"📥 Baixar Arquivo ({nome_arq})",
+                                data=dados_blob,
+                                file_name=nome_arq,
+                                key=f"dl_imp_{imp_id}"
+                            )
+                        
+                        col1, col2 = st.columns(2)
                         if col1.button("✅ Concluir e Dar Baixa", key=f"ap_imp_{imp_id}"):
-                            cursor.execute("SELECT qtd_estoque FROM insumos WHERE descricao LIKE '%Papel A4%'")
-                            res_papel = cursor.fetchone()
-                            estoque_papel = res_papel[0] if res_papel else 0
-
-                            if estoque_papel < copias:
-                                st.error(f"❌ Estoque insuficiente de Papel A4! Necessário: {copias} | Atual: {estoque_papel}")
-                            else:
-                                cursor.execute("UPDATE insumos SET qtd_estoque = MAX(0, qtd_estoque - ?) WHERE descricao LIKE '%Papel A4%'", (copias,))
-                                cursor.execute("UPDATE impressoes SET status = 'Aprovada / Concluída' WHERE id = ?", (imp_id,))
-                                conn.commit()
-                                st.success(f"Aprovado! Baixa de {copias} folhas realizada.")
-                                st.rerun()
+                            cursor.execute("UPDATE Solicitacao SET status_atual = 'Aprovada / Concluída' WHERE id_solicitacao = ?", (imp_id,))
+                            cursor.execute("UPDATE Insumo SET qtd_estoque = MAX(0, qtd_estoque - ?) WHERE nome LIKE '%Papel A4%'", (copias,))
+                            conn.commit()
+                            st.success("Aprovado e concluído!")
+                            st.rerun()
                                 
                         if col2.button("❌ Recusar", key=f"rec_imp_{imp_id}"):
-                            cursor.execute("UPDATE impressoes SET status = 'Recusada' WHERE id = ?", (imp_id,))
+                            cursor.execute("UPDATE Solicitacao SET status_atual = 'Recusada' WHERE id_solicitacao = ?", (imp_id,))
                             conn.commit()
                             st.rerun()
             else:
@@ -635,26 +626,31 @@ def sistema_principal():
 
             st.divider()
 
-            # SEÇÃO: Aprovação de Fila de Reservas
+            # FILA DE RESERVAS
             st.subheader("📅 Fila de Reservas Pendentes")
-            cursor.execute("SELECT * FROM reservas WHERE status = 'Pendente'")
+            cursor.execute("""
+                SELECT S.id_solicitacao, U.nome, S.acabamento, S.qtd, S.data_solicitacao, S.observacao 
+                FROM Solicitacao S
+                LEFT JOIN Usuario U ON S.Usuario_id_usuario = U.id_usuario
+                WHERE S.tipo_origem != 'Impressão' AND S.status_atual = 'Pendente'
+            """)
             reservas_pendentes = cursor.fetchall()
             
             if reservas_pendentes:
                 for item in reservas_pendentes:
-                    res_id, solicitante, nivel, tipo_reserva_item, recurso, qtd, dt, hr, obs, status = item
-                    with st.expander(f"Reserva #{res_id} - {solicitante} ({recurso})"):
-                        st.write(f"**Data:** {dt} | **Horário:** {hr} | **Qtd:** {qtd}")
+                    res_id, prof_nome, recurso, qtd, dt, hr_obs = item
+                    with st.expander(f"Reserva #{res_id} - Professor: {prof_nome} - Recurso: {recurso}"):
+                        st.write(f"**Data:** {dt} | **Detalhes:** {hr_obs} | **Qtd:** {qtd}")
                         col_ap, col_rec = st.columns(2)
                         
                         if col_ap.button("✅ Aprovar Reserva", key=f"ap_res_{res_id}"):
-                            cursor.execute("UPDATE reservas SET status = 'Aprovada' WHERE id = ?", (res_id,))
+                            cursor.execute("UPDATE Solicitacao SET status_atual = 'Aprovada' WHERE id_solicitacao = ?", (res_id,))
                             conn.commit()
                             st.success("Reserva aprovada!")
                             st.rerun()
                             
                         if col_rec.button("❌ Recusar Reserva", key=f"rec_res_{res_id}"):
-                            cursor.execute("UPDATE reservas SET status = 'Recusada' WHERE id = ?", (res_id,))
+                            cursor.execute("UPDATE Solicitacao SET status_atual = 'Recusada' WHERE id_solicitacao = ?", (res_id,))
                             conn.commit()
                             st.rerun()
             else:
@@ -662,185 +658,108 @@ def sistema_principal():
 
             st.divider()
 
-            # SEÇÃO: Devolução e Baixa de Recursos em Uso
+            # RECURSOS EM USO
             st.subheader("🔄 Recursos/Laboratórios Atualmente em Uso (Aprovados)")
-            cursor.execute("SELECT * FROM reservas WHERE status = 'Aprovada'")
+            cursor.execute("""
+                SELECT S.id_solicitacao, U.nome, S.acabamento, S.qtd, S.data_solicitacao, S.observacao 
+                FROM Solicitacao S
+                LEFT JOIN Usuario U ON S.Usuario_id_usuario = U.id_usuario
+                WHERE S.status_atual = 'Aprovada' AND S.tipo_origem != 'Impressão'
+            """)
             reservas_em_uso = cursor.fetchall()
 
             if reservas_em_uso:
                 for item in reservas_em_uso:
-                    res_id, solicitante, nivel, tipo_reserva_item, recurso, qtd, dt, hr, obs, status = item
-                    with st.expander(f"🔴 Em Uso #{res_id} - {recurso} (Reservado por: {solicitante})"):
-                        st.write(f"**Data:** {dt} | **Horário:** {hr} | **Quantidade:** {qtd}")
-                        st.write(f"**Obs:** {obs}")
+                    res_id, prof_nome, recurso, qtd, dt, hr_obs = item
+                    with st.expander(f"🔴 Em Uso #{res_id} - Prof. {prof_nome} ({recurso})"):
+                        st.write(f"**Data:** {dt} | **Horário/Obs:** {hr_obs} | **Quantidade:** {qtd}")
                         if st.button("📥 Receber Devolta / Finalizar Uso", key=f"baixa_res_{res_id}"):
-                            cursor.execute("UPDATE reservas SET status = 'Devolvido / Finalizado' WHERE id = ?", (res_id,))
+                            cursor.execute("UPDATE Solicitacao SET status_atual = 'Devolvido / Finalizado' WHERE id_solicitacao = ?", (res_id,))
                             conn.commit()
-                            st.success(f"Uso do recurso **{recurso}** finalizado e liberado com sucesso!")
+                            st.success(f"Uso de **{recurso}** finalizado com sucesso!")
                             st.rerun()
             else:
                 st.info("Nenhum recurso ou laboratório está atualmente marcado como 'Aprovado/Em Uso'.")
 
             st.divider()
 
-            # SEÇÃO: Gestão de Insumos da Mecanografia (Tabela `insumos`)
-            st.subheader("📦 Estoque de Insumos da Mecanografia")
-            df_insumos = pd.read_sql_query("SELECT codigo AS 'Código', descricao AS 'Item', qtd_estoque AS 'Qtd Atual', qtd_minima AS 'Qtd Mínima', unidade AS 'Unidade' FROM insumos", conn)
+            # GESTÃO DE INSUMOS E EQUIPAMENTOS
+            st.subheader("📦 Estoque de Insumos e Equipamentos (`Insumo`)")
+            df_insumos = pd.read_sql_query("SELECT id_insumo AS 'Código', nome AS 'Item', tipo AS 'Tipo/Categoria', qtd_estoque AS 'Qtd Atual', estoque_minimo AS 'Qtd Mínima', unidade_media AS 'Unidade' FROM Insumo", conn)
             st.dataframe(df_insumos, use_container_width=True)
 
             col_ins1, col_ins2, col_ins3 = st.columns(3)
             
-            # Sub-bloco: Entrada e Retirada de Unidades em Insumos
             with col_ins1:
                 with st.expander("➕ Adicionar/Repor Estoque"):
-                    cursor.execute("SELECT codigo, descricao FROM insumos")
+                    cursor.execute("SELECT id_insumo, nome FROM Insumo")
                     lista_ins = cursor.fetchall()
                     if lista_ins:
-                        opcoes_ins = {desc: cod for cod, desc in lista_ins}
-                        item_sel = st.selectbox("Insumo:", list(opcoes_ins.keys()), key="add_ins_sel")
-                        qtd_add = st.number_input("Qtd Recebida:", min_value=1, value=500, key="add_ins_qtd")
+                        opcoes_ins = {nome: id_i for id_i, nome in lista_ins}
+                        item_sel = st.selectbox("Item/Equipamento:", list(opcoes_ins.keys()), key="add_ins_sel")
+                        qtd_add = st.number_input("Qtd Recebida:", min_value=1.0, value=1.0, key="add_ins_qtd")
                         
-                        if st.button("Confirmar Entrada de Insumo"):
-                            cursor.execute("UPDATE insumos SET qtd_estoque = qtd_estoque + ? WHERE codigo = ?", (qtd_add, opcoes_ins[item_sel]))
+                        if st.button("Confirmar Entrada"):
+                            id_sel = opcoes_ins[item_sel]
+                            cursor.execute("UPDATE Insumo SET qtd_estoque = qtd_estoque + ? WHERE id_insumo = ?", (qtd_add, id_sel))
+                            cursor.execute("INSERT INTO Mov_Estoque (Usuario_id_usuario, Insumo_id_insumo, tipo_movimentacao, qtd, data_movimentacao, observacao) VALUES (?, ?, ?, ?, ?, ?)",
+                                           (st.session_state.usuario_id, id_sel, "ENTRADA", qtd_add, datetime.now(), "Entrada de material"))
                             conn.commit()
                             st.success(f"Adicionadas {qtd_add} unidades de {item_sel}!")
                             st.rerun()
 
-                with st.expander("➖ Retirar Unidades do Estoque"):
-                    cursor.execute("SELECT codigo, descricao, qtd_estoque FROM insumos")
+                with st.expander("➖ Retirar / Dar Baixa (Danificado/Perdido)"):
+                    cursor.execute("SELECT id_insumo, nome, qtd_estoque FROM Insumo")
                     lista_ins_sub = cursor.fetchall()
                     if lista_ins_sub:
-                        dict_sub_ins = {f"{desc} (Atual: {qtd})": (cod, qtd, desc) for cod, desc, qtd in lista_ins_sub}
-                        item_sub_sel = st.selectbox("Selecione o Insumo:", list(dict_sub_ins.keys()), key="sub_ins_sel")
-                        cod_ins, max_qtd_ins, desc_ins = dict_sub_ins[item_sub_sel]
+                        dict_sub_ins = {f"{nome} (Atual: {int(qtd)})": (id_i, qtd, nome) for id_i, nome, qtd in lista_ins_sub}
+                        item_sub_sel = st.selectbox("Selecione o Item:", list(dict_sub_ins.keys()), key="sub_ins_sel")
+                        id_ins, max_qtd_ins, desc_ins = dict_sub_ins[item_sub_sel]
                         
-                        qtd_sub = st.number_input("Quantidade a Retirar:", min_value=1, max_value=max(1, max_qtd_ins), value=1, key="sub_ins_qtd")
+                        qtd_sub = st.number_input("Quantidade a Retirar:", min_value=1.0, max_value=max(1.0, float(max_qtd_ins)), value=1.0, key="sub_ins_qtd")
+                        motivo_baixa = st.text_input("Motivo da Baixa:")
                         
-                        if st.button("Confirmar Retirada de Unidades"):
-                            if max_qtd_ins < qtd_sub:
-                                st.error("❌ Quantidade a retirar maior do que o estoque atual.")
-                            else:
-                                cursor.execute("UPDATE insumos SET qtd_estoque = MAX(0, qtd_estoque - ?) WHERE codigo = ?", (qtd_sub, cod_ins))
-                                conn.commit()
-                                st.warning(f"Retiradas {qtd_sub} unidade(s) de {desc_ins}!")
-                                st.rerun()
+                        if st.button("Confirmar Retirada"):
+                            cursor.execute("UPDATE Insumo SET qtd_estoque = MAX(0, qtd_estoque - ?) WHERE id_insumo = ?", (qtd_sub, id_ins))
+                            cursor.execute("INSERT INTO Mov_Estoque (Usuario_id_usuario, Insumo_id_insumo, tipo_movimentacao, qtd, data_movimentacao, observacao) VALUES (?, ?, ?, ?, ?, ?)",
+                                           (st.session_state.usuario_id, id_ins, "SAIDA", qtd_sub, datetime.now(), motivo_baixa if motivo_baixa else "Baixa efetuada"))
+                            conn.commit()
+                            st.warning(f"Retiradas {qtd_sub} unidade(s) de {desc_ins}!")
+                            st.rerun()
 
-            # Sub-bloco: Novo Insumo
             with col_ins2:
-                with st.expander("🆕 Cadastrar Novo Insumo"):
-                    novo_nome = st.text_input("Nome do Produto:")
-                    nova_qtd = st.number_input("Quantidade Inicial:", min_value=0, value=100)
-                    nova_qtd_min = st.number_input("Mínimo de Alerta:", min_value=1, value=20)
+                with st.expander("🆕 Cadastrar Novo Item/Equipamento"):
+                    novo_nome = st.text_input("Nome do Item:")
+                    novo_tipo = st.selectbox("Categoria:", ["Papelaria", "Suprimento", "Equipamento Tecnológico", "Equipamento de Educação Física"])
+                    nova_qtd = st.number_input("Quantidade Inicial:", min_value=0.0, value=10.0)
+                    nova_qtd_min = st.number_input("Mínimo de Alerta:", min_value=1.0, value=2.0)
                     nova_un = st.text_input("Unidade:", value="Unidades")
                     
-                    if st.button("Cadastrar Insumo"):
+                    if st.button("Cadastrar Item"):
                         if novo_nome:
-                            try:
-                                cursor.execute("INSERT INTO insumos (descricao, qtd_estoque, qtd_minima, unidade) VALUES (?, ?, ?, ?)", (novo_nome, nova_qtd, nova_qtd_min, nova_un))
-                                conn.commit()
-                                st.success(f"Insumo **{novo_nome}** cadastrado!")
-                                st.rerun()
-                            except sqlite3.IntegrityError:
-                                st.error("Produto já existente.")
+                            cursor.execute("INSERT INTO Insumo (nome, tipo, unidade_media, qtd_estoque, estoque_minimo) VALUES (?, ?, ?, ?, ?)", 
+                                           (novo_nome, novo_tipo, nova_un, nova_qtd, nova_qtd_min))
+                            conn.commit()
+                            st.success(f"Item **{novo_nome}** cadastrado!")
+                            st.rerun()
 
-            # Sub-bloco: Exclusão Permanente de Insumo
             with col_ins3:
-                with st.expander("🗑️ Excluir Insumo Permanentemente"):
-                    cursor.execute("SELECT codigo, descricao FROM insumos")
+                with st.expander("🗑️ Excluir Item Permanentemente"):
+                    cursor.execute("SELECT id_insumo, nome FROM Insumo")
                     insumos_para_remover = cursor.fetchall()
                     if insumos_para_remover:
-                        dict_rem_ins = {desc: cod for cod, desc in insumos_para_remover}
-                        item_rem = st.selectbox("Selecione para Remover do Sistema:", list(dict_rem_ins.keys()), key="del_ins_sel")
-                        
-                        if st.button("❌ Confirmar Exclusão do Insumo", type="primary"):
-                            cursor.execute("DELETE FROM insumos WHERE codigo = ?", (dict_rem_ins[item_rem],))
-                            conn.commit()
-                            st.warning(f"Insumo **{item_rem}** foi removido permanentemente!")
-                            st.rerun()
-
-            st.divider()
-
-            # SEÇÃO: Gestão de Equipamentos Tecnológicos e Esportivos (Tabela `equipamentos`)
-            st.subheader("⚽ Gestão Interativa de Equipamentos (Tecnológicos & Educação Física)")
-            
-            df_eq = pd.read_sql_query("SELECT id AS 'ID', nome AS 'Equipamento', categoria AS 'Categoria', qtd_total AS 'Quantidade Disponível' FROM equipamentos", conn)
-            st.dataframe(df_eq, use_container_width=True)
-
-            col_eq1, col_eq2, col_eq3 = st.columns(3)
-            
-            # Sub-bloco: Reposição e Baixa de Unidades em Equipamentos
-            with col_eq1:
-                with st.expander("➕ Repor / Comprar Equipamento"):
-                    cursor.execute("SELECT id, nome FROM equipamentos")
-                    eqs = cursor.fetchall()
-                    if eqs:
-                        dict_eqs = {nome: eq_id for eq_id, nome in eqs}
-                        eq_sel = st.selectbox("Selecione o Item para Adicionar:", list(dict_eqs.keys()))
-                        qtd_add_eq = st.number_input("Quantidade Adicionada:", min_value=1, value=1)
-                        if st.button("Confirmar Reposição"):
-                            cursor.execute("UPDATE equipamentos SET qtd_total = qtd_total + ? WHERE id = ?", (qtd_add_eq, dict_eqs[eq_sel]))
-                            conn.commit()
-                            st.success(f"Adicionadas {qtd_add_eq} unidade(s) a {eq_sel}!")
-                            st.rerun()
-
-                with st.expander("➖ Dar Baixa em Unidades (Danificado/Perdido)"):
-                    cursor.execute("SELECT id, nome, qtd_total FROM equipamentos")
-                    eqs_baixa = cursor.fetchall()
-                    if eqs_baixa:
-                        dict_eqs_baixa = {f"{nome} (Disp: {qtd})": (eq_id, qtd, nome) for eq_id, nome, qtd in eqs_baixa}
-                        eq_sel_baixa = st.selectbox("Selecione o Item para Baixa:", list(dict_eqs_baixa.keys()))
-                        eq_id, max_disp, nome_item = dict_eqs_baixa[eq_sel_baixa]
-                        
-                        qtd_sub_eq = st.number_input("Qtd Danificada/Perdida:", min_value=1, max_value=max(1, max_disp), value=1)
-                        motivo_baixa = st.text_input("Motivo (Ex: Bola furou, Cone quebrou, etc.):")
-                        
-                        if st.button("Confirmar Baixa de Unidades"):
-                            if max_disp < qtd_sub_eq:
-                                st.error("❌ Não é possível retirar mais do que a quantidade disponível.")
-                            else:
-                                cursor.execute("UPDATE equipamentos SET qtd_total = MAX(0, qtd_total - ?) WHERE id = ?", (qtd_sub_eq, eq_id))
-                                conn.commit()
-                                st.warning(f"Baixa registrada: -{qtd_sub_eq} unidade(s) de {nome_item}. Motivo: {motivo_baixa}")
-                                st.rerun()
-
-            # Sub-bloco: Novo Equipamento
-            with col_eq2:
-                with st.expander("🆕 Cadastrar Novo Equipamento"):
-                    novo_eq_nome = st.text_input("Nome do Equipamento:")
-                    novo_eq_cat = st.selectbox("Categoria:", ["Equipamento Tecnológico", "Equipamento de Educação Física"])
-                    novo_eq_qtd = st.number_input("Quantidade Inicial:", min_value=1, value=5)
-                    
-                    if st.button("Cadastrar Equipamento"):
-                        if novo_eq_nome:
-                            try:
-                                cursor.execute("INSERT INTO equipamentos (nome, categoria, qtd_total) VALUES (?, ?, ?)", (novo_eq_nome, novo_eq_cat, novo_eq_qtd))
-                                conn.commit()
-                                st.success(f"Equipamento **{novo_eq_nome}** cadastrado!")
-                                st.rerun()
-                            except sqlite3.IntegrityError:
-                                st.error("Equipamento já cadastrado.")
-
-            # Sub-bloco: Exclusão Definitiva de Equipamentos (ex: Cones)
-            with col_eq3:
-                with st.expander("🗑️ Excluir Equipamento Permanentemente"):
-                    cursor.execute("SELECT id, nome, categoria FROM equipamentos")
-                    eqs_para_deletar = cursor.fetchall()
-                    if eqs_para_deletar:
-                        dict_del_eq = {f"{nome} ({cat})": (eq_id, nome) for eq_id, nome, cat in eqs_para_deletar}
-                        item_del_sel = st.selectbox("Selecione o Item para Excluir do Sistema:", list(dict_del_eq.keys()), key="del_eq_sel")
-                        id_eq_del, nome_eq_del = dict_del_eq[item_del_sel]
+                        dict_rem_ins = {nome: id_i for id_i, nome in insumos_para_remover}
+                        item_rem = st.selectbox("Selecione para Remover:", list(dict_rem_ins.keys()), key="del_ins_sel")
                         
                         if st.button("❌ Confirmar Exclusão Definitiva", type="primary"):
-                            cursor.execute("DELETE FROM equipamentos WHERE id = ?", (id_eq_del,))
+                            cursor.execute("DELETE FROM Insumo WHERE id_insumo = ?", (dict_rem_ins[item_rem],))
                             conn.commit()
-                            st.warning(f"O equipamento **{nome_eq_del}** foi excluído permanentemente do banco de dados!")
+                            st.warning(f"Item **{item_rem}** removido permanentemente!")
                             st.rerun()
 
             conn.close()
 
-# 5. PONTO DE ENTRADA DO SISTEMA
-# Onde fica: Rodapé do script.
-# O que faz: Direciona para a tela de Login ou para o Painel Principal conforme a sessão.
+# 5. PONTO DE ENTRADA
 if not st.session_state.logado:
     tela_login()
 else:
