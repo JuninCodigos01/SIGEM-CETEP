@@ -384,7 +384,7 @@ def sistema_principal():
 # ABA 2: RESERVAR RECURSOS (SOLUÇÃO DEFINITIVA ANTI-BUG REACT)
     with guias[1]:
         st.header("Realizar Reserva de Recursos")
-        st.info(f"👤 **Professor/Responsável pela Reserva:** {st.session_state.nome_usuario} ({st.session_state.email_usuario})")
+        st.info(f"👤 **Professor/Responsável pela Reserva:** {st.session_state.nome_usuario}")
 
         # 1. Seleção da Categoria
         tipo_reserva = st.selectbox(
@@ -724,7 +724,7 @@ def sistema_principal():
             st.divider()
 
             # GESTÃO DE INSUMOS E EQUIPAMENTOS
-            st.subheader("📦 Estoque de Insumos e Equipamentos (`Insumo`)")
+            st.subheader("📦 Estoque de Insumos e Equipamentos")
             df_insumos = pd.read_sql_query("""
                 SELECT id_insumo AS 'Código', nome AS 'Item', tipo AS 'Tipo/Categoria', 
                        CAST(qtd_estoque AS INT) AS 'Qtd Atual', CAST(estoque_minimo AS INT) AS 'Qtd Mínima', 
