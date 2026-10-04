@@ -1,26 +1,32 @@
+# CONFIGURAÇÃO E BIBLIOTECAS NECESSÁRIAS
 import streamlit as st
 import pandas as pd
 import sqlite3
 from datetime import date, datetime, timedelta, time
 
-# CONFIGURAÇÃO DA PÁGINA (STREAMLIT)
+# CONFIGURAÇÃO INICIAL DA PÁGINA DO STREAMLIT
 st.set_page_config(
     page_title="SIGEM - Gestão Escolar & Mecanografia", 
     page_icon="🏫", 
     layout="wide"
 )
 
-# 1. GERENCIAMENTO DO BANCO DE DADOS (SQLite3)
+# 1. GERENCIAMENTO E CRIAÇÃO DO BANCO DE DADOS (SQLite3)
+
+# Função para conectar ao arquivo do banco de dados SQLite
 def conectar_bd():
     conn = sqlite3.connect("escola.db", check_same_thread=False)
     return conn
 
+# Função para inicializar o banco e criar as tabelas na ordem da imagem
 def inicializar_bd():
     conn = conectar_bd()
     cursor = conn.cursor()
     
+    # Ativa o suporte a chaves estrangeiras (Foreign Keys)
     cursor.execute("PRAGMA foreign_keys = ON;")
 
+    # 1. Tabela Curso
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS Curso (
         id_curso INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -29,17 +35,7 @@ def inicializar_bd():
     );
     """)
 
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS Turma (
-        id_turma INTEGER PRIMARY KEY AUTOINCREMENT,
-        Curso_id_curso INT,
-        nome VARCHAR(100),
-        ano INT,
-        turno VARCHAR(20),
-        FOREIGN KEY (Curso_id_curso) REFERENCES Curso(id_curso)
-    );
-    """)
-
+    # 2. Tabela Usuario
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS Usuario (
         id_usuario INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,11 +47,13 @@ def inicializar_bd():
     );
     """)
 
+    # Verificação de segurança para adicionar coluna 'senha' caso a tabela já existisse
     try:
         cursor.execute("ALTER TABLE Usuario ADD COLUMN senha VARCHAR(100);")
     except sqlite3.OperationalError:
         pass
 
+    # 3. Tabela Arquivo
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS Arquivo (
         id_arquivo INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -66,6 +64,31 @@ def inicializar_bd():
     );
     """)
 
+    # 4. Tabela Insumo
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS Insumo (
+        id_insumo INTEGER PRIMARY KEY AUTOINCREMENT,
+        nome VARCHAR(100),
+        tipo VARCHAR(50),
+        unidade_media VARCHAR(20),
+        qtd_estoque INT,
+        estoque_minimo INT
+    );
+    """)
+
+    # 5. Tabela Turma
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS Turma (
+        id_turma INTEGER PRIMARY KEY AUTOINCREMENT,
+        Curso_id_curso INT,
+        nome VARCHAR(100),
+        ano INT,
+        turno VARCHAR(20),
+        FOREIGN KEY (Curso_id_curso) REFERENCES Curso(id_curso)
+    );
+    """)
+
+    # 6. Tabela Solicitação (Solicitacao)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS Solicitacao (
         id_solicitacao INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -83,6 +106,7 @@ def inicializar_bd():
     );
     """)
 
+    # 7. Tabela Disciplina
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS Disciplina (
         id_disciplina INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -98,6 +122,7 @@ def inicializar_bd():
     );
     """)
 
+    # 8. Tabela Email
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS email (
         id_email INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -114,6 +139,7 @@ def inicializar_bd():
     );
     """)
 
+    # 9. Tabela Historico_Status
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS Historico_Status (
         id_historico INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -126,17 +152,7 @@ def inicializar_bd():
     );
     """)
 
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS Insumo (
-        id_insumo INTEGER PRIMARY KEY AUTOINCREMENT,
-        nome VARCHAR(100),
-        tipo VARCHAR(50),
-        unidade_media VARCHAR(20),
-        qtd_estoque INT,
-        estoque_minimo INT
-    );
-    """)
-
+    # 10. Tabela Mov_Estoque
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS Mov_Estoque (
         id_movimentacao INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -151,6 +167,7 @@ def inicializar_bd():
     );
     """)
 
+    # Cadastro automático do usuário padrão (DBA) caso a tabela esteja vazia
     cursor.execute("SELECT COUNT(*) FROM Usuario")
     if cursor.fetchone()[0] == 0:
         cursor.execute(
@@ -158,6 +175,7 @@ def inicializar_bd():
             ("DBA", "", "", "Administrador", "2525")
         )
 
+    # Cadastro inicial de insumos se a tabela estiver vazia
     cursor.execute("SELECT COUNT(*) FROM Insumo")
     if cursor.fetchone()[0] == 0:
         cursor.executemany(
@@ -169,9 +187,11 @@ def inicializar_bd():
     conn.commit()
     conn.close()
 
+# Executa a inicialização do banco ao carregar o script
 inicializar_bd()
 
-# Session State
+# 2. GERENCIAMENTO DE SESSÃO (Session State)
+# Mantém as informações de login do usuário ativas durante o uso do aplicativo
 if "logado" not in st.session_state:
     st.session_state.logado = False
     st.session_state.usuario_id = None
@@ -180,7 +200,9 @@ if "logado" not in st.session_state:
     st.session_state.nome_usuario = None
     st.session_state.email_usuario = None
 
-# FUNÇÕES AUXILIARES
+# 3. FUNÇÕES AUXILIARES DE NEGÓCIO E CONSULTAS
+
+# Obtém a quantidade em estoque dos equipamentos cadastrados
 def obter_estoque_equipamentos():
     conn = conectar_bd()
     cursor = conn.cursor()
@@ -189,6 +211,7 @@ def obter_estoque_equipamentos():
     conn.close()
     return {row[0]: int(row[1]) for row in dados}
 
+# Verifica a quantidade disponível de Papel A4 no estoque
 def verificar_estoque_papel():
     conn = conectar_bd()
     cursor = conn.cursor()
@@ -197,6 +220,7 @@ def verificar_estoque_papel():
     conn.close()
     return int(res[0]) if res else 0
 
+# Extrai os horários de início e fim da string de observação da reserva
 def extrair_horarios(texto_obs):
     try:
         if "Horário:" in texto_obs:
@@ -209,6 +233,7 @@ def extrair_horarios(texto_obs):
         pass
     return None, None
 
+# Verifica se o espaço ou recurso já possui agendamento no mesmo horário e data
 def verificar_conflito_reserva(recurso, data_str, h_inicio, h_fim):
     conn = conectar_bd()
     cursor = conn.cursor()
@@ -227,6 +252,7 @@ def verificar_conflito_reserva(recurso, data_str, h_inicio, h_fim):
                 return True, horario_formatado, status
     return False, "", ""
 
+# Soma as quantidades de determinado equipamento já reservadas para um período
 def obter_quantidade_reservada(recurso, data_str, h_inicio, h_fim):
     conn = conectar_bd()
     cursor = conn.cursor()
@@ -245,7 +271,7 @@ def obter_quantidade_reservada(recurso, data_str, h_inicio, h_fim):
                 total += int(qtd)
     return total
 
-# TELA DE LOGIN
+# 4. INTERFACE GRÁFICA - TELA DE LOGIN
 def tela_login():
     st.title("🏫 Sistema Integrado de Gestão e Mecanografia (SIGEM)")
     
@@ -278,8 +304,9 @@ def tela_login():
             else:
                 st.error("Usuário não encontrado.")
 
-# SISTEMA PRINCIPAL
+# 5. INTERFACE GRÁFICA - SISTEMA PRINCIPAL E ABAS
 def sistema_principal():
+    # Barra lateral de informações do usuário logado
     st.sidebar.title("👤 Perfil do Usuário")
     st.sidebar.write(f"**Nome:** {st.session_state.nome_usuario}")
     st.sidebar.write(f"**E-mail:** {st.session_state.email_usuario}")
@@ -291,14 +318,14 @@ def sistema_principal():
 
     st.title("📌 Painel de Gestão e Pedidos")
 
-    # DECLARAÇÃO DAS ABAS FIXAS NO TOPO
+    # Definição das abas dinâmicas conforme o nível de acesso
     abas = ["🖨️ Solicitar Impressão", "📅 Reservar Recursos", "📋 Painel de Solicitações"]
     if st.session_state.nivel_acesso in ["Administrador", "Coordenação"]:
         abas.append("📊 Gestão da Coordenação")
         
     guias = st.tabs(abas)
 
-    # ABA 1: IMPRESSÃO
+    # ABA 1: SOLICITAÇÃO DE IMPRESSÃO
     with guias[0]:
         st.header("🖨️ Solicitação de Impressão")
         
@@ -371,12 +398,11 @@ def sistema_principal():
 
                     st.success(f"✅ Solicitação do arquivo **{nome_arq}** enviada com sucesso!")
 
-    # ABA 2: RESERVAR RECURSOS
+    # ABA 2: RESERVA DE RECURSOS E LABORATÓRIOS
     with guias[1]:
         st.header("Realizar Reserva de Recursos")
         st.info(f"👤 **Professor/Responsável pela Reserva:** {st.session_state.nome_usuario}")
 
-        # 1. Seleção da Categoria
         tipo_reserva = st.selectbox(
             "O que deseja reservar?",
             ["Laboratório", "Equipamento Tecnológico", "Equipamento de Educação Física"],
@@ -385,7 +411,6 @@ def sistema_principal():
 
         st.markdown("---")
 
-        # 2. Seleção do Recurso
         recurso_selecionado = ""
         if tipo_reserva == "Laboratório":
             recurso_selecionado = st.selectbox(
@@ -411,7 +436,6 @@ def sistema_principal():
                 st.warning("Nenhum item cadastrado para esta categoria.")
                 recurso_selecionado = None
 
-        # 3. Campos de Data e Horários (Sempre fixos)
         col_h1, col_h2, col_h3 = st.columns([1, 1, 1])
         with col_h1:
             data_reserva = st.date_input("Data da Reserva:", min_value=date.today(), key="v_dt_res")
@@ -420,7 +444,6 @@ def sistema_principal():
         with col_h3:
             hora_fim = st.text_input("Horário de Término:", value="08:20", key="v_h_fim")
 
-        # 4. Cálculo de Disponibilidade
         disp_real = 1
         tem_erro_horario = False
 
@@ -436,7 +459,6 @@ def sistema_principal():
         except ValueError:
             tem_erro_horario = True
 
-        # 5. Input de Quantidade
         if tipo_reserva != "Laboratório":
             if disp_real == 0 and not tem_erro_horario:
                 st.error(f"❌ Nenhuma unidade disponível de **{recurso_selecionado}** para este horário.")
@@ -449,7 +471,6 @@ def sistema_principal():
 
         observacao = st.text_area("Observações / Finalidade Pedagógica:", key="v_obs_txt")
 
-        # 6. Botão de Submissão
         if st.button("Confirmar Reserva", type="primary", use_container_width=True, key="v_btn_reserva"):
             if tem_erro_horario:
                 st.error("❌ Formato de horário inválido. Utilize o formato HH:MM (ex: 07:30).")
@@ -486,8 +507,8 @@ def sistema_principal():
                     conn.commit()
                     conn.close()
                     st.success(f"✅ Reserva de **{recurso_selecionado}** realizada para o horário `{horario_str}`!")
-                    
-    # ABA 3: HISTÓRICO DE SOLICITAÇÕES
+
+    # ABA 3: HISTÓRICO E ACOMPANHAMENTO DE SOLICITAÇÕES
     with guias[2]:
         st.header("📋 Histórico de Pedidos e Reservas")
         conn = conectar_bd()
@@ -544,14 +565,14 @@ def sistema_principal():
             st.info("Nenhuma reserva encontrada.")
         conn.close()
 
-    # ABA 4: GESTÃO DE COORDENAÇÃO E ESTOQUE
+    # ABA 4: PAINEL DE GESTÃO - COORDENAÇÃO E ESTOQUE
     if st.session_state.nivel_acesso in ["Administrador", "Coordenação"]:
         with guias[3]:
             st.header("⚙️ Controle de Mecanografia e Gestão de Pedidos")
             conn = conectar_bd()
             cursor = conn.cursor()
             
-            # GESTÃO DE USUÁRIOS
+            # Subseção: Gestão de Usuários
             st.subheader("👥 Gestão de Usuários e Professores")
             df_usuarios = pd.read_sql_query("SELECT id_usuario AS 'ID', nome AS 'Nome Completo', email AS 'E-mail', telefone AS 'Telefone', tipo_usuario AS 'Nível de Acesso' FROM Usuario", conn)
             st.dataframe(df_usuarios, use_container_width=True)
@@ -607,12 +628,12 @@ def sistema_principal():
 
             st.divider()
 
-            # ALERTAS DE INSUMOS
+            # Subseção: Alerta de Insumos Abaixo do Estoque Mínimo
             cursor.execute("SELECT nome, CAST(qtd_estoque AS INT), CAST(estoque_minimo AS INT), unidade_media FROM Insumo WHERE qtd_estoque <= estoque_minimo")
             for item in cursor.fetchall():
                 st.warning(f"⚠️ **Insumo Crítico:** {item[0]} | Atual: {item[1]} {item[3]} (Mínimo: {item[2]} {item[3]})")
 
-            # FILA DE IMPRESSÃO (INCLUI 'PENDENTE' E 'EM IMPRESSÃO')
+            # Subseção: Fila de Impressão Pendente e em Andamento
             st.subheader("🖨️ Fila de Impressão e Processamento")
             cursor.execute("""
                 SELECT S.id_solicitacao, U.nome, CAST(S.qtd AS INT), S.tipo_impressao, S.data_solicitacao, S.observacao, A.nome_arquivo, A.local_arquivo, S.status_atual
@@ -669,7 +690,7 @@ def sistema_principal():
 
             st.divider()
 
-            # FILA DE RESERVAS
+            # Subseção: Fila de Reservas de Espaço/Equipamento Pendentes
             st.subheader("📅 Fila de Reservas Pendentes")
             cursor.execute("""
                 SELECT S.id_solicitacao, U.nome, S.acabamento, CAST(S.qtd AS INT), S.data_solicitacao, S.observacao 
@@ -701,7 +722,7 @@ def sistema_principal():
 
             st.divider()
 
-            # RECURSOS EM USO
+            # Subseção: Monitoramento de Recursos Aprovados em Uso
             st.subheader("🔄 Recursos/Laboratórios Atualmente em Uso (Aprovados)")
             cursor.execute("""
                 SELECT S.id_solicitacao, U.nome, S.acabamento, CAST(S.qtd AS INT), S.data_solicitacao, S.observacao 
@@ -726,7 +747,7 @@ def sistema_principal():
 
             st.divider()
 
-            # GESTÃO DE INSUMOS E EQUIPAMENTOS
+            # Subseção: Gestão Completa de Estoque (Insumos e Equipamentos)
             st.subheader("📦 Estoque de Insumos e Equipamentos")
             df_insumos = pd.read_sql_query("""
                 SELECT id_insumo AS 'Código', nome AS 'Item', tipo AS 'Tipo/Categoria', 
@@ -807,7 +828,7 @@ def sistema_principal():
 
             conn.close()
 
-# PONTO DE ENTRADA
+# 6. PONTO DE ENTRADA DA APLICAÇÃO
 if not st.session_state.logado:
     tela_login()
 else:
