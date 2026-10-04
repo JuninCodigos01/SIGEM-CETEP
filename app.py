@@ -274,7 +274,7 @@ def obter_quantidade_reservada(recurso, data_str, h_inicio, h_fim):
 # 4. INTERFACE GRÁFICA - TELA DE LOGIN
 def tela_login():
     st.image("sigem.jpeg", width=150) # Use o nome exato da imagem que enviou
-    st.title("🏫 Sistema Integrado de Gestão e Mecanografia (SIGEM)")
+    st.title("Sistema Integrado de Gestão e Mecanografia")
     
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
