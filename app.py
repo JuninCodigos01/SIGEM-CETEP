@@ -7,7 +7,7 @@ from datetime import date, datetime, timedelta, time
 # CONFIGURAÇÃO INICIAL DA PÁGINA DO STREAMLIT
 st.set_page_config(
     page_title="SIGEM - Gestão Escolar & Mecanografia", 
-    page_icon="sigem.jpeg", 
+    page_icon="ssigem.jpeg", 
     layout="wide"
 )
 
