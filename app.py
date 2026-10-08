@@ -7,7 +7,7 @@ from datetime import date, datetime, timedelta, time
 # CONFIGURAÇÃO INICIAL DA PÁGINA DO STREAMLIT
 st.set_page_config(
     page_title="SIGEM - Gestão Escolar & Mecanografia", 
-    page_icon="sigem.jpeg", 
+    page_icon="SIGEM_icon.png", 
     layout="wide"
 )
 
@@ -273,12 +273,12 @@ def obter_quantidade_reservada(recurso, data_str, h_inicio, h_fim):
 
 # 4. INTERFACE GRÁFICA - TELA DE LOGIN
 def tela_login():
-    st.image("sigem.jpeg", width=150) # Use o nome exato da imagem que enviou
+    st.image("SIGEM_logo.png", width=150) # Use o nome exato da imagem que enviou
     st.title("Sistema Integrado de Gestão e Mecanografia")
     
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.subheader("🔑 Acesso ao Sistema")
+        st.subheader("Acesso ao Sistema")
         usuario_input = st.text_input("Nome do Usuário:")
         senha_input = st.text_input("Senha:", type="password")
         
@@ -308,12 +308,12 @@ def tela_login():
 # 5. INTERFACE GRÁFICA - SISTEMA PRINCIPAL E ABAS
 def sistema_principal():
     # Barra lateral de informações do usuário logado
-    st.sidebar.title("👤 Perfil do Usuário")
+    st.sidebar.title("Perfil do Usuário")
     st.sidebar.write(f"**Nome:** {st.session_state.nome_usuario}")
     st.sidebar.write(f"**E-mail:** {st.session_state.email_usuario}")
     st.sidebar.write(f"**Nível:** `{st.session_state.nivel_acesso}`")
     
-    if st.sidebar.button("Sair (Logout)"):
+    if st.sidebar.button("Sair"):
         st.session_state.logado = False
         st.rerun()
 
@@ -417,10 +417,12 @@ def sistema_principal():
             recurso_selecionado = st.selectbox(
                 "Escolha o Laboratório:", 
                 [
-                    "Laboratório de Informática 1",
-                    "Laboratório de Informática 2",
+                    "Laboratório de Programação",
+                    "Laboratório de Redes",
                     "Laboratório de Ciências / Biologia",
-                    "Laboratório de Química / Física"
+                    "Laboratório de Química / Física",
+                    "Laboratório de Programação Visual",
+                    "Laboratório de Manutenção de Computadores e Robótica"
                 ],
                 key="v_lab_item"
             )
