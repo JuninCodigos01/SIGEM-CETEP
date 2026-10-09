@@ -172,7 +172,6 @@ def inicializar_bd():
     if cursor.fetchone()[0] == 0:
         cursor.execute(
             "INSERT INTO Usuario (nome, email, telefone, tipo_usuario, senha) VALUES (?, ?, ?, ?, ?)",
-            ("DBA", "", "", "Administrador", "2525")
         )
 
     # Cadastro inicial de insumos se a tabela estiver vazia
