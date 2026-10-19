@@ -26,16 +26,7 @@ def inicializar_bd():
     # Ativa o suporte a chaves estrangeiras (Foreign Keys)
     cursor.execute("PRAGMA foreign_keys = ON;")
 
-    # 1. Tabela Curso
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS Curso (
-        id_curso INTEGER PRIMARY KEY AUTOINCREMENT,
-        nome VARCHAR(100),
-        descricao VARCHAR(100)
-    );
-    """)
-
-    # 2. Tabela Usuario
+    # 1. Tabela Usuario
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS Usuario (
         id_usuario INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -53,7 +44,7 @@ def inicializar_bd():
     except sqlite3.OperationalError:
         pass
 
-    # 3. Tabela Arquivo
+    # 2. Tabela Arquivo
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS Arquivo (
         id_arquivo INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -64,7 +55,7 @@ def inicializar_bd():
     );
     """)
 
-    # 4. Tabela Insumo
+    # 3. Tabela Insumo
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS Insumo (
         id_insumo INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -76,19 +67,7 @@ def inicializar_bd():
     );
     """)
 
-    # 5. Tabela Turma
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS Turma (
-        id_turma INTEGER PRIMARY KEY AUTOINCREMENT,
-        Curso_id_curso INT,
-        nome VARCHAR(100),
-        ano INT,
-        turno VARCHAR(20),
-        FOREIGN KEY (Curso_id_curso) REFERENCES Curso(id_curso)
-    );
-    """)
-
-    # 6. Tabela Solicitação (Solicitacao)
+    # 4. Tabela Solicitação (Solicitacao)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS Solicitacao (
         id_solicitacao INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -106,40 +85,7 @@ def inicializar_bd():
     );
     """)
 
-    # 7. Tabela Disciplina
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS Disciplina (
-        id_disciplina INTEGER PRIMARY KEY AUTOINCREMENT,
-        Curso_id_curso INT,
-        Solicitacao_id_solicitacao INT,
-        Solicitacao_Arquivo_id_arquivo INT,
-        Solicitacao_Usuario_id_usuario INT,
-        nome VARCHAR(100),
-        FOREIGN KEY (Curso_id_curso) REFERENCES Curso(id_curso),
-        FOREIGN KEY (Solicitacao_id_solicitacao) REFERENCES Solicitacao(id_solicitacao),
-        FOREIGN KEY (Solicitacao_Arquivo_id_arquivo) REFERENCES Arquivo(id_arquivo),
-        FOREIGN KEY (Solicitacao_Usuario_id_usuario) REFERENCES Usuario(id_usuario)
-    );
-    """)
-
-    # 8. Tabela Email
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS email (
-        id_email INTEGER PRIMARY KEY AUTOINCREMENT,
-        Solicitacao_id_solicitacao INT,
-        Solicitacao_Arquivo_id_arquivo INT,
-        Solicitacao_Usuario_id_usuario INT,
-        email_remetente VARCHAR(150),
-        assunto VARCHAR(255),
-        data_recebimento DATETIME,
-        identificador_email VARCHAR(255),
-        FOREIGN KEY (Solicitacao_id_solicitacao) REFERENCES Solicitacao(id_solicitacao),
-        FOREIGN KEY (Solicitacao_Arquivo_id_arquivo) REFERENCES Arquivo(id_arquivo),
-        FOREIGN KEY (Solicitacao_Usuario_id_usuario) REFERENCES Usuario(id_usuario)
-    );
-    """)
-
-    # 9. Tabela Historico_Status
+    # 5. Tabela Historico_Status
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS Historico_Status (
         id_historico INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -152,7 +98,7 @@ def inicializar_bd():
     );
     """)
 
-    # 10. Tabela Mov_Estoque
+    # 6. Tabela Mov_Estoque
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS Mov_Estoque (
         id_movimentacao INTEGER PRIMARY KEY AUTOINCREMENT,
