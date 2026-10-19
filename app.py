@@ -253,7 +253,7 @@ def tela_login():
 # 5. INTERFACE GRÁFICA - SISTEMA PRINCIPAL E ABAS
 def sistema_principal():
     # Barra lateral de informações do usuário logado
-    st.image("SIGEM_logo.png", width=300)
+    st.sidebar.image("SIGEM_logo.png", width=150)
     st.sidebar.title("Perfil do Usuário")
     st.sidebar.write(f"**Nome:** {st.session_state.nome_usuario}")
     st.sidebar.write(f"**E-mail:** {st.session_state.email_usuario}")
