@@ -529,7 +529,7 @@ def sistema_principal():
             with col_u1:
                 with st.expander("➕ Adicionar Novo Usuário"):
                     with st.form("form_novo_usuario", clear_on_submit=True):
-                        nov_nome = st.text_input("Nome Completo:")
+                        nov_nome = st.text_input("Usuário:")
                         nov_email = st.text_input("E-mail:")
                         nov_tel = st.text_input("Telefone:")
                         nov_nivel = st.selectbox("Nível de Acesso:", ["Professor", "Coordenação", "Administrador"])
