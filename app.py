@@ -763,7 +763,7 @@ def sistema_principal():
                             st.rerun()
 
             with col_ins3:
-                with st.expander("Excluir Item Permanentemente", icon = ":material/remove:"):
+                with st.expander("Excluir Item Permanentemente", icon = ":material/delete:"):
                     cursor.execute("SELECT id_insumo, nome FROM Insumo")
                     insumos_para_remover = cursor.fetchall()
                     if insumos_para_remover:
