@@ -262,7 +262,7 @@ def sistema_principal():
     if st.sidebar.button("Sair"):
         st.session_state.logado = False
         st.rerun()
-    col1, col2 = st.columns([1, 6])
+    col1, col2 = st.columns([1, 8])
     
     with col1:
         st.image("imagemSIGEM/painel.png", width=85)
