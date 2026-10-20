@@ -262,8 +262,12 @@ def sistema_principal():
     if st.sidebar.button("Sair"):
         st.session_state.logado = False
         st.rerun()
-    st.image("imagemSIGEM/painel.png")
-    st.title("Painel de Gestão e Pedidos")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.image("imagemSIGEM/painel.png")
+    with col2:
+        st.title("Painel de Gestão e Pedidos")
 
     # Definição das abas dinâmicas conforme o nível de acesso
     abas = ["🖨️ Solicitar Impressão", "📅 Reservar Recursos", "📋 Painel de Solicitações"]
