@@ -227,7 +227,7 @@ def tela_login():
         usuario_input = st.text_input("Nome do Usuário:")
         senha_input = st.text_input("Senha:", type="password")
         
-        if st.button("Entrar", use_container_width=True):
+        if st.button("Entrar", use_container_width=True, icon = ":material/login:"):
             conn = conectar_bd()
             cursor = conn.cursor()
             cursor.execute("SELECT id_usuario, tipo_usuario, nome, email, senha FROM Usuario WHERE LOWER(nome) = LOWER(?)", (usuario_input.strip(),))
@@ -259,7 +259,7 @@ def sistema_principal():
     st.sidebar.write(f"**E-mail:** {st.session_state.email_usuario}")
     st.sidebar.write(f"**Nível:** `{st.session_state.nivel_acesso}`")
     
-    if st.sidebar.button("Sair"):
+    if st.sidebar.button("Sair", icon = ":material/logout:"):
         st.session_state.logado = False
         st.rerun()
         
@@ -763,7 +763,7 @@ def sistema_principal():
                             st.rerun()
 
             with col_ins3:
-                with st.expander("Excluir Item Permanentemente", icon = ":material/remove:"):
+                with st.expander("Excluir Item Permanentemente", icon = ":material/delete:"):
                     cursor.execute("SELECT id_insumo, nome FROM Insumo")
                     insumos_para_remover = cursor.fetchall()
                     if insumos_para_remover:
