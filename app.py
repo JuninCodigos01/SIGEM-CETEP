@@ -262,10 +262,10 @@ def sistema_principal():
     if st.sidebar.button("Sair"):
         st.session_state.logado = False
         st.rerun()
-    col1, col2 = st.columns([1, 10], vertical_alignment="center")
+    col1, col2 = st.columns([1, 15], vertical_alignment="center")
     
     with col1:
-        st.image("imagemSIGEM/painel.png", width=85)
+        st.image("imagemSIGEM/painel.png", width=60)
     with col2:
         st.title("Painel de Gestão e Pedidos")
 
