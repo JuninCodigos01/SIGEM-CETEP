@@ -176,7 +176,13 @@ def inicializar_bd():
     cursor.execute("SELECT COUNT(*) FROM Insumo")
     if cursor.fetchone()[0] == 0:
         cursor.executemany(
-            "INSERT INTO Insumo (nome, tipo, unidade_media, qtd_estoque, estoque_minimo) VALUES (?,?,?,?,?)"
+            "INSERT INTO Insumo (nome, tipo, unidade_media, qtd_estoque, estoque_minimo) VALUES (?,?,?,?,?)",
+            [
+                ("Papel A4", "Papelaria", "Folhas", 500, 100),
+                ("Laboratório de Programação", "Laboratório", "Sala", 1, 0),
+                ("Laboratório de Redes", "Laboratório", "Sala", 1, 0),
+                ("Projetor Multimídia", "Equipamento Tecnológico", "Unidades", 5, 1)
+            ]
         )
 
     conn.commit()
@@ -263,7 +269,7 @@ def obter_quantidade_reservada(recurso, data_str, h_inicio, h_fim):
 # 4. INTERFACE GRÁFICA - TELA DE LOGIN
 def tela_login():
     st.image("SIGEM_logo.png", width=150)
-    st.title("Sistema Integrado de Gestão Escolar e Mecanografia")
+    st.title("Sistema Integrado de Gestão e Mecanografia")
     
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
@@ -385,7 +391,6 @@ def sistema_principal():
                     conn.commit()
                     conn.close()
                     
-                    # Salva no GitHub automaticamente
                     salvar_bd_no_github()
 
                     st.success(f"Solicitação do arquivo **{nome_arq}** enviada com sucesso!", icon=":material/check:")
@@ -410,13 +415,10 @@ def sistema_principal():
                 [
                     "Laboratório de Programação",
                     "Laboratório de Redes",
-                    "Laboratório de Biologia",
-                    "Laboratório de Química",
+                    "Laboratório de Ciências / Biologia",
+                    "Laboratório de Química / Física",
                     "Laboratório de Programação Visual",
-                    "Laboratório de Manutenção de Computadores",
-                    "Laboratório de Robótica",
-                    "Auditório",
-                    "Laboratório de Edificações"
+                    "Laboratório de Manutenção de Computadores e Robótica"
                 ],
                 key="v_lab_item"
             )
@@ -437,9 +439,9 @@ def sistema_principal():
         with col_h1:
             data_reserva = st.date_input("Data da Reserva:", min_value=date.today(), key="v_dt_res")
         with col_h2:
-            hora_inicio = st.time_input("Horário de Início:", value=time(7, 10), key="v_h_ini")
+            hora_inicio = st.time_input("Horário de Início:", value=time(7, 30), key="v_h_ini")
         with col_h3:
-            hora_fim = st.time_input("Horário de Término:", value=time(8, 00), key="v_h_fim")
+            hora_fim = st.time_input("Horário de Término:", value=time(8, 20), key="v_h_fim")
 
         disp_real = 1
         h_ini_obj = hora_inicio
@@ -448,11 +450,11 @@ def sistema_principal():
         if tipo_reserva != "Laboratório" and recurso_selecionado:
             estoque_dict = obter_estoque_equipamentos()
             max_total = int(estoque_dict.get(recurso_selecionado, 0) or 0)
-            ja_reservados = int(ja_reservados or 0)
+            ja_reservados = int(obter_quantidade_reservada(recurso_selecionado, data_reserva.strftime("%Y-%m-%d"), h_ini_obj, h_fim_obj) or 0)
             disp_real = max(0, max_total - ja_reservados)
 
         if tipo_reserva != "Laboratório":
-            if disp_real == 0 and not tem_erro_horario:
+            if disp_real == 0:
                 st.error(f"Nenhuma unidade disponível de **{recurso_selecionado}** para este horário.")
                 qtd_reservada = st.number_input("Quantidade a reservar:", min_value=0, max_value=0, value=0, disabled=True, key="v_qtd_num")
             else:
@@ -462,7 +464,7 @@ def sistema_principal():
             qtd_reservada = 1
 
         observacao = st.text_area("Observações / Finalidade Pedagógica:", key="v_obs_txt")
-    
+
         if st.button("Confirmar Reserva", type="primary", use_container_width=True, key="v_btn_reserva"):
             if h_ini_obj >= h_fim_obj:
                 st.error("O horário de término deve ser posterior ao horário de início.")
@@ -497,7 +499,6 @@ def sistema_principal():
                     conn.commit()
                     conn.close()
                     
-                    # Salva no GitHub automaticamente
                     salvar_bd_no_github()
                     
                     st.success(f"Reserva de **{recurso_selecionado}** realizada para o horário `{horario_str}`!", icon=":material/check:")
@@ -592,7 +593,6 @@ def sistema_principal():
                                 conn.commit()
                                 conn.close()
                                 
-                                # Salva no GitHub automaticamente
                                 salvar_bd_no_github()
                                 
                                 st.success(f"Usuário **{nov_nome}** ({nov_nivel}) cadastrado!", icon=":material/check:")
@@ -624,7 +624,6 @@ def sistema_principal():
                                 conn.commit()
                                 conn.close()
                                 
-                                # Salva no GitHub automaticamente
                                 salvar_bd_no_github()
                                 
                                 st.warning("Usuário foi removido do sistema com sucesso.")
