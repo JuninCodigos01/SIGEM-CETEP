@@ -176,8 +176,7 @@ def inicializar_bd():
     cursor.execute("SELECT COUNT(*) FROM Insumo")
     if cursor.fetchone()[0] == 0:
         cursor.executemany(
-            "INSERT INTO Insumo (nome, tipo, unidade_media, qtd_estoque, estoque_minimo) VALUES (?,?,?,?,?)",
-            [
+            "INSERT INTO Insumo (nome, tipo, unidade_media, qtd_estoque, estoque_minimo) VALUES (?,?,?,?,?)"
         )
 
     conn.commit()
