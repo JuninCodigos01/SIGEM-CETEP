@@ -352,7 +352,20 @@ def sistema_principal():
 
         recurso_selecionado = ""
         if tipo_reserva == "Laboratório":
-            recurso_selecionado = st.selectbox("Escolha o Laboratório:", ["Laboratório de Programação", "Laboratório de Redes", "Laboratório de Ciências / Biologia", "Laboratório de Química / Física", "Laboratório de Programação Visual", "Laboratório de Manutenção de Computadores e Robótica"], key="v_lab_item")
+            recurso_selecionado = st.selectbox("Escolha o Laboratório:",
+            [
+            "Laboratório de Programação",
+                "Laboratório de Redes",
+                "Laboratório de Biologia",
+                "Laboratório de Química",
+                "Laboratório de Programação Visual",
+                "Laboratório de Manutenção de Computadores",
+                "Laboratório de Robótica",
+                "Auditório",
+                "Laboratório de Edificações"
+            ], 
+            key="v_lab_item"
+        )
         else:
             conn = conectar_bd()
             cursor = conn.cursor()
