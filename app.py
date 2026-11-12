@@ -178,11 +178,6 @@ def inicializar_bd():
         cursor.executemany(
             "INSERT INTO Insumo (nome, tipo, unidade_media, qtd_estoque, estoque_minimo) VALUES (?,?,?,?,?)",
             [
-                ("Papel A4", "Papelaria", "Folhas", 500, 100),
-                ("Laboratório de Programação", "Laboratório", "Sala", 1, 0),
-                ("Laboratório de Redes", "Laboratório", "Sala", 1, 0),
-                ("Projetor Multimídia", "Equipamento Tecnológico", "Unidades", 5, 1)
-            ]
         )
 
     conn.commit()
@@ -269,7 +264,7 @@ def obter_quantidade_reservada(recurso, data_str, h_inicio, h_fim):
 # 4. INTERFACE GRÁFICA - TELA DE LOGIN
 def tela_login():
     st.image("SIGEM_logo.png", width=150)
-    st.title("Sistema Integrado de Gestão e Mecanografia")
+    st.title("Sistema Integrado de Gestão Escolar e Mecanografia")
     
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
@@ -416,10 +411,13 @@ def sistema_principal():
                 [
                     "Laboratório de Programação",
                     "Laboratório de Redes",
-                    "Laboratório de Ciências / Biologia",
-                    "Laboratório de Química / Física",
+                    "Laboratório de Biologia",
+                    "Laboratório de Química",
                     "Laboratório de Programação Visual",
-                    "Laboratório de Manutenção de Computadores e Robótica"
+                    "Laboratório de Manutenção de Computadores"
+                    "Laboratório de Robótica"
+                    "Auditório"
+                    "Laboratório de Edificações"
                 ],
                 key="v_lab_item"
             )
@@ -440,24 +438,28 @@ def sistema_principal():
         with col_h1:
             data_reserva = st.date_input("Data da Reserva:", min_value=date.today(), key="v_dt_res")
         with col_h2:
-            hora_inicio = st.text_input("Horário de Início:", value="07:30", key="v_h_ini")
+            hora_inicio = st.time_input(
+                "Horário de Início:", value=time(7, 10), key="v_h_ini"
+            )
         with col_h3:
-            hora_fim = st.text_input("Horário de Término:", value="08:20", key="v_h_fim")
+            hora_fim = st.time_input(
+                "Horário de Término:", value=time(8, 00), key="v_h_fim"
+            )
 
         disp_real = 1
-        tem_erro_horario = False
+        h_ini_obj = hora_inicio
+        h_fim_obj = hora_fim
 
-        try:
-            h_ini_obj = datetime.strptime(hora_inicio.strip(), "%H:%M").time()
-            h_fim_obj = datetime.strptime(hora_fim.strip(), "%H:%M").time()
-            
-            if tipo_reserva != "Laboratório" and recurso_selecionado:
-                estoque_dict = obter_estoque_equipamentos()
-                max_total = estoque_dict.get(recurso_selecionado, 0)
-                ja_reservados = obter_quantidade_reservada(recurso_selecionado, data_reserva.strftime("%Y-%m-%d"), h_ini_obj, h_fim_obj)
-                disp_real = max(0, max_total - ja_reservados)
-        except ValueError:
-            tem_erro_horario = True
+        if tipo_reserva != "Laboratório" and recurso_selecionado:
+            estoque_dict = obter_estoque_equipamentos()
+            max_total = estoque_dict.get(recurso_selecionado, 0)
+            ja_reservados = obter_quantidade_reservada(
+                  recurso_selecionado,
+                  data_reserva.strftime("%Y-%m-%d"),
+                  h_ini_obj,
+                  h_fim_obj,
+          )
+          disp_real = max(0, max_total - ja_reservados)
 
         if tipo_reserva != "Laboratório":
             if disp_real == 0 and not tem_erro_horario:
