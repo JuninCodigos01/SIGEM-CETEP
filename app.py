@@ -635,7 +635,7 @@ def sistema_principal():
                             st.success(f"Adicionadas {qtd_add} unidades de {item_sel}!")
                             st.rerun()
 
-                with st.expander("Retirar / Dar Baixa (Danificado/Perdido)", icon=":material/remove:")
+                with st.expander("Retirar / Dar Baixa (Danificado/Perdido)", icon=":material/remove:"):
                     cursor.execute("SELECT id_insumo, nome, CAST(qtd_estoque AS INT) FROM Insumo")
                     lista_ins_sub = cursor.fetchall()
                     if lista_ins_sub:
