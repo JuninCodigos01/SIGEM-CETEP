@@ -413,9 +413,9 @@ def sistema_principal():
                     "Laboratório de Biologia",
                     "Laboratório de Química",
                     "Laboratório de Programação Visual",
-                    "Laboratório de Manutenção de Computadores"
-                    "Laboratório de Robótica"
-                    "Auditório"
+                    "Laboratório de Manutenção de Computadores",
+                    "Laboratório de Robótica",
+                    "Auditório",
                     "Laboratório de Edificações"
                 ],
                 key="v_lab_item"
