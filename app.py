@@ -447,14 +447,9 @@ def sistema_principal():
 
         if tipo_reserva != "Laboratório" and recurso_selecionado:
             estoque_dict = obter_estoque_equipamentos()
-            max_total = estoque_dict.get(recurso_selecionado, 0)
-            ja_reservados = obter_quantidade_reservada(
-                  recurso_selecionado,
-                  data_reserva.strftime("%Y-%m-%d"),
-                  h_ini_obj,
-                  h_fim_obj
-          )
-          disp_real = max(0, max_total - ja_reservados)
+            max_total = int(estoque_dict.get(recurso_selecionado, 0) or 0)
+            ja_reservados = int(ja_reservados or 0)
+            disp_real = max(0, max_total - ja_reservados)
 
         if tipo_reserva != "Laboratório":
             if disp_real == 0 and not tem_erro_horario:
