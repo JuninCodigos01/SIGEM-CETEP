@@ -3,6 +3,8 @@ import streamlit as st
 import pandas as pd
 import sqlite3
 from datetime import date, datetime, timedelta, time
+from github import Github
+import os
 
 # CONFIGURAÇÃO INICIAL DA PÁGINA DO STREAMLIT
 st.set_page_config(
@@ -10,6 +12,57 @@ st.set_page_config(
     page_icon="SIGEM_icon.png", 
     layout="wide"
 )
+
+DB_PATH = "escola.db"
+REPO_NAME = (
+    "JuninCodigos01/SIGEM-CETEP"
+)
+
+
+def baixar_bd_do_github():
+  # Descarrega o banco de dados do GitHub se ele não existir localmente no servidor
+  if not os.path.exists(DB_PATH):
+    try:
+      token = st.secrets.get("GITHUB_TOKEN")
+      if token:
+        g = Github(token)
+        repo = g.get_repo(REPO_NAME)
+        file_content = repo.get_contents(DB_PATH)
+        with open(DB_PATH, "wb") as f:
+          f.write(file_content.decoded_content)
+    except Exception:
+      pass
+
+
+def salvar_bd_no_github():
+  # Envia o banco de dados atualizado de volta para o GitHub
+  try:
+    token = st.secrets.get("GITHUB_TOKEN")
+    if token and os.path.exists(DB_PATH):
+      g = Github(token)
+      repo = g.get_repo(REPO_NAME)
+
+      with open(DB_PATH, "rb") as f:
+        content = f.read()
+
+      try:
+        contents = repo.get_contents(DB_PATH)
+        repo.update_file(
+            contents.path,
+            "Atualização automática do banco de dados (SIGEM)",
+            content,
+            contents.sha,
+        )
+      except Exception:
+        repo.create_file(
+            DB_PATH, "Criação inicial do banco de dados (SIGEM)", content
+        )
+  except Exception as e:
+    st.error(f"Erro ao sincronizar dados com o GitHub: {e}")
+
+
+# Executa o download antes de criar/conectar à BD
+baixar_bd_do_github()
 
 # 1. GERENCIAMENTO E CRIAÇÃO DO BANCO DE DADOS (SQLite3)
 
