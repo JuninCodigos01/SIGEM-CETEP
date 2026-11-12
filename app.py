@@ -437,13 +437,9 @@ def sistema_principal():
         with col_h1:
             data_reserva = st.date_input("Data da Reserva:", min_value=date.today(), key="v_dt_res")
         with col_h2:
-            hora_inicio = st.time_input(
-                "Horário de Início:", value=time(7, 10), key="v_h_ini"
-            )
+            hora_inicio = st.time_input("Horário de Início:", value=time(7, 10), key="v_h_ini")
         with col_h3:
-            hora_fim = st.time_input(
-                "Horário de Término:", value=time(8, 00), key="v_h_fim"
-            )
+            hora_fim = st.time_input("Horário de Término:", value=time(8, 00), key="v_h_fim")
 
         disp_real = 1
         h_ini_obj = hora_inicio
@@ -456,7 +452,7 @@ def sistema_principal():
                   recurso_selecionado,
                   data_reserva.strftime("%Y-%m-%d"),
                   h_ini_obj,
-                  h_fim_obj,
+                  h_fim_obj
           )
           disp_real = max(0, max_total - ja_reservados)
 
