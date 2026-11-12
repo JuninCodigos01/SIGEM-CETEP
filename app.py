@@ -157,20 +157,13 @@ def inicializar_bd():
     cursor.execute("SELECT COUNT(*) FROM Usuario")
     if cursor.fetchone()[0] == 0:
         cursor.execute(
-            "INSERT INTO Usuario (nome, email, telefone, tipo_usuario, senha) VALUES (?, ?, ?, ?, ?)",
-            ("Administrador", "admin@escola.com", "(00) 00000-0000", "Administrador", "admin123")
+            "INSERT INTO Usuario (nome, email, telefone, tipo_usuario, senha) VALUES (?, ?, ?, ?, ?)"
         )
 
     cursor.execute("SELECT COUNT(*) FROM Insumo")
     if cursor.fetchone()[0] == 0:
         cursor.executemany(
-            "INSERT INTO Insumo (nome, tipo, unidade_media, qtd_estoque, estoque_minimo) VALUES (?,?,?,?,?)",
-            [
-                ("Papel A4", "Papelaria", "Folhas", 500, 100),
-                ("Laboratório de Programação", "Laboratório", "Sala", 1, 0),
-                ("Laboratório de Redes", "Laboratório", "Sala", 1, 0),
-                ("Projetor Multimídia", "Equipamento Tecnológico", "Unidades", 5, 1)
-            ]
+            "INSERT INTO Insumo (nome, tipo, unidade_media, qtd_estoque, estoque_minimo) VALUES (?,?,?,?,?)"
         )
 
     conn.commit()
@@ -376,9 +369,9 @@ def sistema_principal():
         with col_h1:
             data_reserva = st.date_input("Data da Reserva:", min_value=date.today(), key="v_dt_res")
         with col_h2:
-            hora_inicio = st.time_input("Horário de Início:", value=time(7, 30), key="v_h_ini")
+            hora_inicio = st.time_input("Horário de Início:", value=time(7, 10), key="v_h_ini")
         with col_h3:
-            hora_fim = st.time_input("Horário de Término:", value=time(8, 20), key="v_h_fim")
+            hora_fim = st.time_input("Horário de Término:", value=time(8, 00), key="v_h_fim")
 
         disp_real = 1
         h_ini_obj = hora_inicio
