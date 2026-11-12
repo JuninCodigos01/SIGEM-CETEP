@@ -346,6 +346,31 @@ def renderizar_historico_tempo_real():
     else:
         st.info("Nenhuma reserva encontrada.")
     conn.close()
+    st.divider()
+
+    st.subheader("Reservas de Recursos (Laboratórios/Materiais)", icon=":material/calendar_month:")
+    if st.session_state.nivel_acesso == "Professor":
+        query_res = """
+            SELECT id_solicitacao AS 'ID', acabamento AS 'Recurso/Espaço', CAST(qtd AS INT) AS 'Qtd', 
+                   data_solicitacao AS 'Data Reserva', observacao AS 'Detalhes/Professor', status_atual AS 'Status'
+            FROM Solicitacao WHERE Usuario_id_usuario = ? AND tipo_origem != 'Impressão'
+        """
+        df_res = pd.read_sql_query(query_res, conn, params=(st.session_state.usuario_id,))
+    else:
+        query_res = """
+            SELECT S.id_solicitacao AS 'ID', U.nome AS 'Professor', S.acabamento AS 'Recurso/Espaço', 
+                   CAST(S.qtd AS INT) AS 'Qtd', S.data_solicitacao AS 'Data Reserva', S.observacao AS 'Detalhes', S.status_atual AS 'Status'
+            FROM Solicitacao S
+            LEFT JOIN Usuario U ON S.Usuario_id_usuario = U.id_usuario
+            WHERE S.tipo_origem != 'Impressão'
+        """
+        df_res = pd.read_sql_query(query_res, conn)
+
+    if not df_res.empty:
+        st.dataframe(df_res, use_container_width=True)
+    else:
+        st.info("Nenhuma reserva encontrada.")
+    conn.close()
 
 
 # 6. INTERFACE GRÁFICA - SISTEMA PRINCIPAL E ABAS
