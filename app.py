@@ -19,16 +19,17 @@ REPO_NAME = "JuninCodigos01/SIGEM-CETEP"
 
 def baixar_bd_do_github():
   # Descarrega o banco de dados do GitHub se ele não existir localmente no servidor
-  try:
-    token = st.secrets.get("GITHUB_TOKEN")
-    if token:
-      g = Github(token)
-      repo = g.get_repo(REPO_NAME)
-      file_content = repo.get_contents(DB_PATH)
-      with open(DB_PATH, "wb") as f:
-        f.write(file_content.decoded_content)
-  except Exception:
-    pass
+  if not os.path.exists(DB_PATH):
+    try:
+      token = st.secrets.get("GITHUB_TOKEN")
+      if token:
+        g = Github(token)
+        repo = g.get_repo(REPO_NAME)
+        file_content = repo.get_contents(DB_PATH)
+        with open(DB_PATH, "wb") as f:
+          f.write(file_content.decoded_content)
+    except Exception:
+      pass
 
 
 def salvar_bd_no_github():
@@ -58,22 +59,25 @@ def salvar_bd_no_github():
     st.error(f"Erro ao sincronizar dados com o GitHub: {e}")
 
 
-# Executa o download inicial se o BD não existir
-if not os.path.exists(DB_PATH):
-  baixar_bd_do_github()
+# Executa o download antes de criar/conectar à BD
+baixar_bd_do_github()
 
 # 1. GERENCIAMENTO E CRIAÇÃO DO BANCO DE DADOS (SQLite3)
 
+# Função para conectar ao arquivo do banco de dados SQLite
 def conectar_bd():
     conn = sqlite3.connect("escola.db", check_same_thread=False)
     return conn
 
+# Função para inicializar o banco e criar as tabelas na ordem da imagem
 def inicializar_bd():
     conn = conectar_bd()
     cursor = conn.cursor()
     
+    # Ativa o suporte a chaves estrangeiras (Foreign Keys)
     cursor.execute("PRAGMA foreign_keys = ON;")
 
+    # 1. Tabela Usuario
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS Usuario (
         id_usuario INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -85,11 +89,13 @@ def inicializar_bd():
     );
     """)
 
+    # Verificação de segurança para adicionar coluna 'senha' caso a tabela já existisse
     try:
         cursor.execute("ALTER TABLE Usuario ADD COLUMN senha VARCHAR(100);")
     except sqlite3.OperationalError:
         pass
 
+    # 2. Tabela Arquivo
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS Arquivo (
         id_arquivo INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -100,6 +106,7 @@ def inicializar_bd():
     );
     """)
 
+    # 3. Tabela Insumo
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS Insumo (
         id_insumo INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -111,6 +118,7 @@ def inicializar_bd():
     );
     """)
 
+    # 4. Tabela Solicitação (Solicitacao)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS Solicitacao (
         id_solicitacao INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -128,6 +136,7 @@ def inicializar_bd():
     );
     """)
 
+    # 5. Tabela Historico_Status
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS Historico_Status (
         id_historico INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -140,6 +149,7 @@ def inicializar_bd():
     );
     """)
 
+    # 6. Tabela Mov_Estoque
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS Mov_Estoque (
         id_movimentacao INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -154,6 +164,7 @@ def inicializar_bd():
     );
     """)
 
+    # Cadastro automático do usuário padrão (DBA) caso a tabela esteja vazia
     cursor.execute("SELECT COUNT(*) FROM Usuario")
     if cursor.fetchone()[0] == 0:
         cursor.execute(
@@ -161,6 +172,7 @@ def inicializar_bd():
             ("Administrador", "admin@escola.com", "(00) 00000-0000", "Administrador", "admin123")
         )
 
+    # Cadastro inicial de insumos se a tabela estiver vazia
     cursor.execute("SELECT COUNT(*) FROM Insumo")
     if cursor.fetchone()[0] == 0:
         cursor.executemany(
@@ -176,9 +188,10 @@ def inicializar_bd():
     conn.commit()
     conn.close()
 
+# Executa a inicialização do banco ao carregar o script
 inicializar_bd()
 
-# 2. GERENCIAMENTO DE SESSÃO
+# 2. GERENCIAMENTO DE SESSÃO (Session State)
 if "logado" not in st.session_state:
     st.session_state.logado = False
     st.session_state.usuario_id = None
@@ -287,93 +300,7 @@ def tela_login():
             else:
                 st.error("Usuário não encontrado.")
 
-# 5. FRAGMENTO DE ATUALIZAÇÃO EM TEMPO REAL (Histórico)
-@st.fragment(run_every="5s")
-def renderizar_historico_tempo_real():
-    # Sincroniza do GitHub em plano de fundo a cada 5s para puxar alterações de outros utilizadores
-    baixar_bd_do_github()
-    
-    conn = conectar_bd()
-    
-    st.subheader("Solicitações de Impressão Enviadas", icon=":material/print:")
-    if st.session_state.nivel_acesso == "Professor":
-        query_imp = """
-            SELECT S.id_solicitacao AS 'ID', A.nome_arquivo AS 'Arquivo', CAST(S.qtd AS INT) AS 'Cópias', 
-                   S.tipo_impressao AS 'Tipo', S.data_solicitacao AS 'Data Necessidade', S.status_atual AS 'Status'
-            FROM Solicitacao S
-            LEFT JOIN Arquivo A ON S.Arquivo_id_arquivo = A.id_arquivo
-            WHERE S.Usuario_id_usuario = ? AND S.tipo_origem = 'Impressão'
-        """
-        df_imp = pd.read_sql_query(query_imp, conn, params=(st.session_state.usuario_id,))
-    else:
-        query_imp = """
-            SELECT S.id_solicitacao AS 'ID', U.nome AS 'Professor', A.nome_arquivo AS 'Arquivo', 
-                   CAST(S.qtd AS INT) AS 'Cópias', S.tipo_impressao AS 'Tipo', S.data_solicitacao AS 'Data', S.status_atual AS 'Status'
-            FROM Solicitacao S
-            LEFT JOIN Arquivo A ON S.Arquivo_id_arquivo = A.id_arquivo
-            LEFT JOIN Usuario U ON S.Usuario_id_usuario = U.id_usuario
-            WHERE S.tipo_origem = 'Impressão'
-        """
-        df_imp = pd.read_sql_query(query_imp, conn)
-        
-    if not df_imp.empty:
-        st.dataframe(df_imp, use_container_width=True)
-    else:
-        st.info("Nenhuma solicitação de impressão encontrada.")
-
-    st.divider()
-
-    st.subheader("Reservas de Recursos (Laboratórios/Materiais)", icon=":material/calendar_month:")
-    if st.session_state.nivel_acesso == "Professor":
-        query_res = """
-            SELECT id_solicitacao AS 'ID', acabamento AS 'Recurso/Espaço', CAST(qtd AS INT) AS 'Qtd', 
-                   data_solicitacao AS 'Data Reserva', observacao AS 'Detalhes/Professor', status_atual AS 'Status'
-            FROM Solicitacao WHERE Usuario_id_usuario = ? AND tipo_origem != 'Impressão'
-        """
-        df_res = pd.read_sql_query(query_res, conn, params=(st.session_state.usuario_id,))
-    else:
-        query_res = """
-            SELECT S.id_solicitacao AS 'ID', U.nome AS 'Professor', S.acabamento AS 'Recurso/Espaço', 
-                   CAST(S.qtd AS INT) AS 'Qtd', S.data_solicitacao AS 'Data Reserva', S.observacao AS 'Detalhes', S.status_atual AS 'Status'
-            FROM Solicitacao S
-            LEFT JOIN Usuario U ON S.Usuario_id_usuario = U.id_usuario
-            WHERE S.tipo_origem != 'Impressão'
-        """
-        df_res = pd.read_sql_query(query_res, conn)
-
-    if not df_res.empty:
-        st.dataframe(df_res, use_container_width=True)
-    else:
-        st.info("Nenhuma reserva encontrada.")
-    conn.close()
-    st.divider()
-
-    st.subheader("Reservas de Recursos (Laboratórios/Materiais)", icon=":material/calendar_month:")
-    if st.session_state.nivel_acesso == "Professor":
-        query_res = """
-            SELECT id_solicitacao AS 'ID', acabamento AS 'Recurso/Espaço', CAST(qtd AS INT) AS 'Qtd', 
-                   data_solicitacao AS 'Data Reserva', observacao AS 'Detalhes/Professor', status_atual AS 'Status'
-            FROM Solicitacao WHERE Usuario_id_usuario = ? AND tipo_origem != 'Impressão'
-        """
-        df_res = pd.read_sql_query(query_res, conn, params=(st.session_state.usuario_id,))
-    else:
-        query_res = """
-            SELECT S.id_solicitacao AS 'ID', U.nome AS 'Professor', S.acabamento AS 'Recurso/Espaço', 
-                   CAST(S.qtd AS INT) AS 'Qtd', S.data_solicitacao AS 'Data Reserva', S.observacao AS 'Detalhes', S.status_atual AS 'Status'
-            FROM Solicitacao S
-            LEFT JOIN Usuario U ON S.Usuario_id_usuario = U.id_usuario
-            WHERE S.tipo_origem != 'Impressão'
-        """
-        df_res = pd.read_sql_query(query_res, conn)
-
-    if not df_res.empty:
-        st.dataframe(df_res, use_container_width=True)
-    else:
-        st.info("Nenhuma reserva encontrada.")
-    conn.close()
-
-
-# 6. INTERFACE GRÁFICA - SISTEMA PRINCIPAL E ABAS
+# 5. INTERFACE GRÁFICA - SISTEMA PRINCIPAL E ABAS
 def sistema_principal():
     st.sidebar.image("SIGEM_logo.png", width=150)
     st.sidebar.title("Perfil do Usuário")
@@ -579,8 +506,59 @@ def sistema_principal():
     # ABA 3: HISTÓRICO E ACOMPANHAMENTO DE SOLICITAÇÕES
     with guias[2]:
         st.header("Histórico de Pedidos e Reservas", icon=":material/assignment:")
-        # Chama a função fragmentada que recarrega a cada 5 segundos automaticamente
-        renderizar_historico_tempo_real()
+        conn = conectar_bd()
+        
+        st.subheader("Solicitações de Impressão Enviadas", icon=":material/print:")
+        if st.session_state.nivel_acesso == "Professor":
+            query_imp = """
+                SELECT S.id_solicitacao AS 'ID', A.nome_arquivo AS 'Arquivo', CAST(S.qtd AS INT) AS 'Cópias', 
+                       S.tipo_impressao AS 'Tipo', S.data_solicitacao AS 'Data Necessidade', S.status_atual AS 'Status'
+                FROM Solicitacao S
+                LEFT JOIN Arquivo A ON S.Arquivo_id_arquivo = A.id_arquivo
+                WHERE S.Usuario_id_usuario = ? AND S.tipo_origem = 'Impressão'
+            """
+            df_imp = pd.read_sql_query(query_imp, conn, params=(st.session_state.usuario_id,))
+        else:
+            query_imp = """
+                SELECT S.id_solicitacao AS 'ID', U.nome AS 'Professor', A.nome_arquivo AS 'Arquivo', 
+                       CAST(S.qtd AS INT) AS 'Cópias', S.tipo_impressao AS 'Tipo', S.data_solicitacao AS 'Data', S.status_atual AS 'Status'
+                FROM Solicitacao S
+                LEFT JOIN Arquivo A ON S.Arquivo_id_arquivo = A.id_arquivo
+                LEFT JOIN Usuario U ON S.Usuario_id_usuario = U.id_usuario
+                WHERE S.tipo_origem = 'Impressão'
+            """
+            df_imp = pd.read_sql_query(query_imp, conn)
+            
+        if not df_imp.empty:
+            st.dataframe(df_imp, use_container_width=True)
+        else:
+            st.info("Nenhuma solicitação de impressão encontrada.")
+
+        st.divider()
+
+        st.subheader("Reservas de Recursos (Laboratórios/Materiais)", icon=":material/calendar_month:")
+        if st.session_state.nivel_acesso == "Professor":
+            query_res = """
+                SELECT id_solicitacao AS 'ID', acabamento AS 'Recurso/Espaço', CAST(qtd AS INT) AS 'Qtd', 
+                       data_solicitacao AS 'Data Reserva', observacao AS 'Detalhes/Professor', status_atual AS 'Status'
+                FROM Solicitacao WHERE Usuario_id_usuario = ? AND tipo_origem != 'Impressão'
+            """
+            df_res = pd.read_sql_query(query_res, conn, params=(st.session_state.usuario_id,))
+        else:
+            query_res = """
+                SELECT S.id_solicitacao AS 'ID', U.nome AS 'Professor', S.acabamento AS 'Recurso/Espaço', 
+                       CAST(S.qtd AS INT) AS 'Qtd', S.data_solicitacao AS 'Data Reserva', S.observacao AS 'Detalhes', S.status_atual AS 'Status'
+                FROM Solicitacao S
+                LEFT JOIN Usuario U ON S.Usuario_id_usuario = U.id_usuario
+                WHERE S.tipo_origem != 'Impressão'
+            """
+            df_res = pd.read_sql_query(query_res, conn)
+
+        if not df_res.empty:
+            st.dataframe(df_res, use_container_width=True)
+        else:
+            st.info("Nenhuma reserva encontrada.")
+        conn.close()
 
     # ABA 4: PAINEL DE GESTÃO - COORDENAÇÃO E ESTOQUE
     if st.session_state.nivel_acesso in ["Administrador", "Coordenação"]:
@@ -874,7 +852,7 @@ def sistema_principal():
 
             conn.close()
 
-# 7. PONTO DE ENTRADA DA APLICAÇÃO
+# 6. PONTO DE ENTRADA DA APLICAÇÃO
 if not st.session_state.logado:
     tela_login()
 else:
