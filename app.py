@@ -14,9 +14,7 @@ st.set_page_config(
 )
 
 DB_PATH = "escola.db"
-REPO_NAME = (
-    "JuninCodigos01/SIGEM-CETEP"
-)
+REPO_NAME = "JuninCodigos01/SIGEM-CETEP"
 
 
 def baixar_bd_do_github():
@@ -171,6 +169,7 @@ def inicializar_bd():
     if cursor.fetchone()[0] == 0:
         cursor.execute(
             "INSERT INTO Usuario (nome, email, telefone, tipo_usuario, senha) VALUES (?, ?, ?, ?, ?)",
+            ("Administrador", "admin@escola.com", "(00) 00000-0000", "Administrador", "admin123")
         )
 
     # Cadastro inicial de insumos se a tabela estiver vazia
@@ -179,6 +178,10 @@ def inicializar_bd():
         cursor.executemany(
             "INSERT INTO Insumo (nome, tipo, unidade_media, qtd_estoque, estoque_minimo) VALUES (?,?,?,?,?)",
             [
+                ("Papel A4", "Papelaria", "Folhas", 500, 100),
+                ("Laboratório de Programação", "Laboratório", "Sala", 1, 0),
+                ("Laboratório de Redes", "Laboratório", "Sala", 1, 0),
+                ("Projetor Multimídia", "Equipamento Tecnológico", "Unidades", 5, 1)
             ]
         )
 
@@ -189,7 +192,6 @@ def inicializar_bd():
 inicializar_bd()
 
 # 2. GERENCIAMENTO DE SESSÃO (Session State)
-# Mantém as informações de login do usuário ativas durante o uso do aplicativo
 if "logado" not in st.session_state:
     st.session_state.logado = False
     st.session_state.usuario_id = None
@@ -200,7 +202,6 @@ if "logado" not in st.session_state:
 
 # 3. FUNÇÕES AUXILIARES DE NEGÓCIO E CONSULTAS
 
-# Obtém a quantidade em estoque dos equipamentos cadastrados
 def obter_estoque_equipamentos():
     conn = conectar_bd()
     cursor = conn.cursor()
@@ -209,7 +210,6 @@ def obter_estoque_equipamentos():
     conn.close()
     return {row[0]: int(row[1]) for row in dados}
 
-# Verifica a quantidade disponível de Papel A4 no estoque
 def verificar_estoque_papel():
     conn = conectar_bd()
     cursor = conn.cursor()
@@ -218,7 +218,6 @@ def verificar_estoque_papel():
     conn.close()
     return int(res[0]) if res else 0
 
-# Extrai os horários de início e fim da string de observação da reserva
 def extrair_horarios(texto_obs):
     try:
         if "Horário:" in texto_obs:
@@ -231,7 +230,6 @@ def extrair_horarios(texto_obs):
         pass
     return None, None
 
-# Verifica se o espaço ou recurso já possui agendamento no mesmo horário e data
 def verificar_conflito_reserva(recurso, data_str, h_inicio, h_fim):
     conn = conectar_bd()
     cursor = conn.cursor()
@@ -250,7 +248,6 @@ def verificar_conflito_reserva(recurso, data_str, h_inicio, h_fim):
                 return True, horario_formatado, status
     return False, "", ""
 
-# Soma as quantidades de determinado equipamento já reservadas para um período
 def obter_quantidade_reservada(recurso, data_str, h_inicio, h_fim):
     conn = conectar_bd()
     cursor = conn.cursor()
@@ -271,16 +268,16 @@ def obter_quantidade_reservada(recurso, data_str, h_inicio, h_fim):
 
 # 4. INTERFACE GRÁFICA - TELA DE LOGIN
 def tela_login():
-    st.image("SIGEM_logo.png", width=150) # Use o nome exato da imagem que enviou
+    st.image("SIGEM_logo.png", width=150)
     st.title("Sistema Integrado de Gestão e Mecanografia")
     
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.subheader("Acesso ao Sistema", icon = ":material/key:")
+        st.subheader("Acesso ao Sistema", icon=":material/key:")
         usuario_input = st.text_input("Nome do Usuário:")
         senha_input = st.text_input("Senha:", type="password")
         
-        if st.button("Entrar", use_container_width=True, icon = ":material/login:"):
+        if st.button("Entrar", use_container_width=True, icon=":material/login:"):
             conn = conectar_bd()
             cursor = conn.cursor()
             cursor.execute("SELECT id_usuario, tipo_usuario, nome, email, senha FROM Usuario WHERE LOWER(nome) = LOWER(?)", (usuario_input.strip(),))
@@ -305,21 +302,19 @@ def tela_login():
 
 # 5. INTERFACE GRÁFICA - SISTEMA PRINCIPAL E ABAS
 def sistema_principal():
-    # Barra lateral de informações do usuário logado
     st.sidebar.image("SIGEM_logo.png", width=150)
     st.sidebar.title("Perfil do Usuário")
     st.sidebar.write(f"**Nome:** {st.session_state.nome_usuario}")
     st.sidebar.write(f"**E-mail:** {st.session_state.email_usuario}")
     st.sidebar.write(f"**Nível:** `{st.session_state.nivel_acesso}`")
     
-    if st.sidebar.button("Sair", icon = ":material/logout:"):
+    if st.sidebar.button("Sair", icon=":material/logout:"):
         st.session_state.logado = False
         st.rerun()
         
-    st.title("Painel de Gestão e Pedidos", icon = ":material/computer:")
+    st.title("Painel de Gestão e Pedidos", icon=":material/computer:")
     
-    # Definição das abas dinâmicas conforme o nível de acesso
-    abas = ["🖨️ Solicitar Impressão" , "📅 Reservar Recursos","📋 Painel de Solicitações"]
+    abas = ["🖨️ Solicitar Impressão", "📅 Reservar Recursos", "📋 Painel de Solicitações"]
     if st.session_state.nivel_acesso in ["Administrador", "Coordenação"]:
         abas.append("📊 Gestão da Coordenação")
         
@@ -327,10 +322,10 @@ def sistema_principal():
 
     # ABA 1: SOLICITAÇÃO DE IMPRESSÃO
     with guias[0]:
-        st.header("Solicitação de Impressão", icon = ":material/print:")
+        st.header("Solicitação de Impressão", icon=":material/print:")
         
         data_minima = date.today() + timedelta(days=2)
-        st.info("**Anexe o arquivo que deseja imprimir no campo abaixo e preencha as especificações de impressão.**", icon = ":material/info:")
+        st.info("**Anexe o arquivo que deseja imprimir no campo abaixo e preencha as especificações de impressão.**", icon=":material/info:")
         
         with st.form("form_impressao", clear_on_submit=True):
             col1, col2 = st.columns(2)
@@ -395,13 +390,16 @@ def sistema_principal():
                     
                     conn.commit()
                     conn.close()
+                    
+                    # Salva no GitHub automaticamente
+                    salvar_bd_no_github()
 
-                    st.success(f"Solicitação do arquivo **{nome_arq}** enviada com sucesso!", icon = ":material/check:")
+                    st.success(f"Solicitação do arquivo **{nome_arq}** enviada com sucesso!", icon=":material/check:")
 
     # ABA 2: RESERVA DE RECURSOS E LABORATÓRIOS
     with guias[1]:
-        st.header("Realizar Reserva de Recursos", icon = ":material/calendar_month:")
-        st.info(f"**Professor/Responsável pela Reserva:** {st.session_state.nome_usuario}", icon = ":material/person:")
+        st.header("Realizar Reserva de Recursos", icon=":material/calendar_month:")
+        st.info(f"**Professor/Responsável pela Reserva:** {st.session_state.nome_usuario}", icon=":material/person:")
 
         tipo_reserva = st.selectbox(
             "O que deseja reservar?",
@@ -508,14 +506,18 @@ def sistema_principal():
                     ))
                     conn.commit()
                     conn.close()
-                    st.success(f"Reserva de **{recurso_selecionado}** realizada para o horário `{horario_str}`!", icon = ":material/check:")
+                    
+                    # Salva no GitHub automaticamente
+                    salvar_bd_no_github()
+                    
+                    st.success(f"Reserva de **{recurso_selecionado}** realizada para o horário `{horario_str}`!", icon=":material/check:")
 
     # ABA 3: HISTÓRICO E ACOMPANHAMENTO DE SOLICITAÇÕES
     with guias[2]:
-        st.header("Histórico de Pedidos e Reservas", icon =":material/assignment:")
+        st.header("Histórico de Pedidos e Reservas", icon=":material/assignment:")
         conn = conectar_bd()
         
-        st.subheader("Solicitações de Impressão Enviadas", icon = ":material/print:")
+        st.subheader("Solicitações de Impressão Enviadas", icon=":material/print:")
         if st.session_state.nivel_acesso == "Professor":
             query_imp = """
                 SELECT S.id_solicitacao AS 'ID', A.nome_arquivo AS 'Arquivo', CAST(S.qtd AS INT) AS 'Cópias', 
@@ -543,7 +545,7 @@ def sistema_principal():
 
         st.divider()
 
-        st.subheader("Reservas de Recursos (Laboratórios/Materiais)", icon = ":material/calendar_month:")
+        st.subheader("Reservas de Recursos (Laboratórios/Materiais)", icon=":material/calendar_month:")
         if st.session_state.nivel_acesso == "Professor":
             query_res = """
                 SELECT id_solicitacao AS 'ID', acabamento AS 'Recurso/Espaço', CAST(qtd AS INT) AS 'Qtd', 
@@ -570,18 +572,18 @@ def sistema_principal():
     # ABA 4: PAINEL DE GESTÃO - COORDENAÇÃO E ESTOQUE
     if st.session_state.nivel_acesso in ["Administrador", "Coordenação"]:
         with guias[3]:
-            st.header("Controle de Mecanografia e Gestão de Pedidos", icon = ":material/settings:")
+            st.header("Controle de Mecanografia e Gestão de Pedidos", icon=":material/settings:")
             conn = conectar_bd()
             cursor = conn.cursor()
             
             # Subseção: Gestão de Usuários
-            st.subheader("Gestão de Usuários e Professores", icon = ":material/groups:")
+            st.subheader("Gestão de Usuários e Professores", icon=":material/groups:")
             df_usuarios = pd.read_sql_query("SELECT id_usuario AS 'ID', nome AS 'Nome Completo', email AS 'E-mail', telefone AS 'Telefone', tipo_usuario AS 'Nível de Acesso' FROM Usuario", conn)
             st.dataframe(df_usuarios, use_container_width=True)
 
             col_u1, col_u2 = st.columns(2)
             with col_u1:
-                with st.expander("Adicionar Novo Usuário",icon = ":material/add:"):
+                with st.expander("Adicionar Novo Usuário", icon=":material/add:"):
                     with st.form("form_novo_usuario", clear_on_submit=True):
                         nov_nome = st.text_input("Nome do Usuário:")
                         nov_email = st.text_input("E-mail:")
@@ -598,11 +600,16 @@ def sistema_principal():
                                     (nov_nome, nov_email, nov_tel, nov_nivel, nov_senha if nov_senha else None)
                                 )
                                 conn.commit()
-                                st.success(f"Usuário **{nov_nome}** ({nov_nivel}) cadastrado!", icon =":material/check:")
+                                conn.close()
+                                
+                                # Salva no GitHub automaticamente
+                                salvar_bd_no_github()
+                                
+                                st.success(f"Usuário **{nov_nome}** ({nov_nivel}) cadastrado!", icon=":material/check:")
                                 st.rerun()
 
             with col_u2:
-                with st.expander("Remover Usuário Cadastrado", icon= ":material/delete:"):
+                with st.expander("Remover Usuário Cadastrado", icon=":material/delete:"):
                     cursor.execute("SELECT id_usuario, nome, email, tipo_usuario, senha FROM Usuario")
                     todos_usuarios = cursor.fetchall()
                     dict_usuarios = {f"{nome} ({email}) - [{tipo}]": (id_u, tipo, senha) for id_u, nome, email, tipo, senha in todos_usuarios}
@@ -614,17 +621,22 @@ def sistema_principal():
                         requer_senha = tipo_excluir in ["Administrador", "Coordenação"]
                         senha_confirmacao = ""
                         if requer_senha:
-                            st.warning(f"Este usuário possui privilégio de **{tipo_excluir}**. Digite a senha dele para confirmar a exclusão:", icon = ":material/close:")
+                            st.warning(f"Este usuário possui privilégio de **{tipo_excluir}**. Digite a senha dele para confirmar a exclusão:", icon=":material/close:")
                             senha_confirmacao = st.text_input("Senha do Usuário a Excluir:", type="password", key="senha_del_usr")
 
-                        if st.button("Confirmar Exclusão do Usuário", type="primary", icon = ":material/close:"):
+                        if st.button("Confirmar Exclusão do Usuário", type="primary", icon=":material/close:"):
                             if id_excluir == st.session_state.usuario_id:
-                                st.error("Você não pode excluir o seu próprio usuário enquanto estiver conectado!", icon = ":material/close:")
+                                st.error("Você não pode excluir o seu próprio usuário enquanto estiver conectado!", icon=":material/close:")
                             elif requer_senha and senha_confirmacao != senha_excluir:
-                                st.error("Senha incorreta! Não é possível remover o usuário Admin/Coordenação sem a senha correta.", icon = ":material/close:")
+                                st.error("Senha incorreta! Não é possível remover o usuário Admin/Coordenação sem a senha correta.", icon=":material/close:")
                             else:
                                 cursor.execute("DELETE FROM Usuario WHERE id_usuario = ?", (id_excluir,))
                                 conn.commit()
+                                conn.close()
+                                
+                                # Salva no GitHub automaticamente
+                                salvar_bd_no_github()
+                                
                                 st.warning("Usuário foi removido do sistema com sucesso.")
                                 st.rerun()
 
@@ -633,10 +645,10 @@ def sistema_principal():
             # Subseção: Alerta de Insumos Abaixo do Estoque Mínimo
             cursor.execute("SELECT nome, CAST(qtd_estoque AS INT), CAST(estoque_minimo AS INT), unidade_media FROM Insumo WHERE qtd_estoque <= estoque_minimo")
             for item in cursor.fetchall():
-                st.warning(f"**Insumo Crítico:** {item[0]} | Atual: {item[1]} {item[3]} (Mínimo: {item[2]} {item[3]})", icon = ":material/warning:")
+                st.warning(f"**Insumo Crítico:** {item[0]} | Atual: {item[1]} {item[3]} (Mínimo: {item[2]} {item[3]})", icon=":material/warning:")
 
             # Subseção: Fila de Impressão Pendente e em Andamento
-            st.subheader("Fila de Impressão e Processamento", icon = ":material/print:")
+            st.subheader("Fila de Impressão e Processamento", icon=":material/print:")
             cursor.execute("""
                 SELECT S.id_solicitacao, U.nome, CAST(S.qtd AS INT), S.tipo_impressao, S.data_solicitacao, S.observacao, A.nome_arquivo, A.local_arquivo, S.status_atual
                 FROM Solicitacao S
@@ -664,7 +676,7 @@ def sistema_principal():
                                 data=dados_blob,
                                 file_name=nome_arq,
                                 key=f"dl_imp_{imp_id}",
-                                icon = ":material/download:"
+                                icon=":material/download:"
                             )
                         
                         st.divider()
@@ -672,21 +684,27 @@ def sistema_principal():
                         col1, col2, col3 = st.columns(3)
                         
                         if status_atual == "Pendente":
-                            if col1.button("Iniciar Impressão", key=f"proc_imp_{imp_id}", icon = ":material/start:"):
+                            if col1.button("Iniciar Impressão", key=f"proc_imp_{imp_id}", icon=":material/start:"):
                                 cursor.execute("UPDATE Solicitacao SET status_atual = 'Em Impressão' WHERE id_solicitacao = ?", (imp_id,))
                                 conn.commit()
+                                conn.close()
+                                salvar_bd_no_github()
                                 st.rerun()
 
-                        if col2.button("Concluir e Dar Baixa", key=f"ap_imp_{imp_id}", icon = ":material/check:"):
+                        if col2.button("Concluir e Dar Baixa", key=f"ap_imp_{imp_id}", icon=":material/check:"):
                             cursor.execute("UPDATE Solicitacao SET status_atual = 'Aprovada / Concluída' WHERE id_solicitacao = ?", (imp_id,))
                             cursor.execute("UPDATE Insumo SET qtd_estoque = MAX(0, qtd_estoque - ?) WHERE nome LIKE '%Papel A4%'", (copias,))
                             conn.commit()
+                            conn.close()
+                            salvar_bd_no_github()
                             st.success("Impressão finalizada e estoque atualizado!")
                             st.rerun()
                                 
-                        if col3.button("Recusar", key=f"rec_imp_{imp_id}", icon = ":material/close:"):
+                        if col3.button("Recusar", key=f"rec_imp_{imp_id}", icon=":material/close:"):
                             cursor.execute("UPDATE Solicitacao SET status_atual = 'Recusada' WHERE id_solicitacao = ?", (imp_id,))
                             conn.commit()
+                            conn.close()
+                            salvar_bd_no_github()
                             st.rerun()
             else:
                 st.info("Nenhuma solicitação de impressão pendente ou em processo.")
@@ -694,7 +712,7 @@ def sistema_principal():
             st.divider()
 
             # Subseção: Fila de Reservas de Espaço/Equipamento Pendentes
-            st.subheader("Fila de Reservas Pendentes", icon = ":material/calendar_month:")
+            st.subheader("Fila de Reservas Pendentes", icon=":material/calendar_month:")
             cursor.execute("""
                 SELECT S.id_solicitacao, U.nome, S.acabamento, CAST(S.qtd AS INT), S.data_solicitacao, S.observacao 
                 FROM Solicitacao S
@@ -710,15 +728,19 @@ def sistema_principal():
                         st.write(f"**Data:** {dt} | **Detalhes:** {hr_obs} | **Qtd:** {qtd}")
                         col_ap, col_rec = st.columns(2)
                         
-                        if col_ap.button("Aprovar Reserva", key=f"ap_res_{res_id}", icon =":material/check:"):
+                        if col_ap.button("Aprovar Reserva", key=f"ap_res_{res_id}", icon=":material/check:"):
                             cursor.execute("UPDATE Solicitacao SET status_atual = 'Aprovada' WHERE id_solicitacao = ?", (res_id,))
                             conn.commit()
+                            conn.close()
+                            salvar_bd_no_github()
                             st.success("Reserva aprovada!")
                             st.rerun()
                             
-                        if col_rec.button("Recusar Reserva", key=f"rec_res_{res_id}",icon = ":material/close:"):
+                        if col_rec.button("Recusar Reserva", key=f"rec_res_{res_id}", icon=":material/close:"):
                             cursor.execute("UPDATE Solicitacao SET status_atual = 'Recusada' WHERE id_solicitacao = ?", (res_id,))
                             conn.commit()
+                            conn.close()
+                            salvar_bd_no_github()
                             st.rerun()
             else:
                 st.info("Nenhuma reserva pendente.")
@@ -726,7 +748,7 @@ def sistema_principal():
             st.divider()
 
             # Subseção: Monitoramento de Recursos Aprovados em Uso
-            st.subheader("Recursos/Laboratórios Atualmente em Uso (Aprovados)", icon = ":material/cached:")
+            st.subheader("Recursos/Laboratórios Atualmente em Uso (Aprovados)", icon=":material/cached:")
             cursor.execute("""
                 SELECT S.id_solicitacao, U.nome, S.acabamento, CAST(S.qtd AS INT), S.data_solicitacao, S.observacao 
                 FROM Solicitacao S
@@ -738,11 +760,13 @@ def sistema_principal():
             if reservas_em_uso:
                 for item in reservas_em_uso:
                     res_id, prof_nome, recurso, qtd, dt, hr_obs = item
-                    with st.expander(f"Em Uso #{res_id} - Prof. {prof_nome} ({recurso})", icon = ":material/block:"):
+                    with st.expander(f"Em Uso #{res_id} - Prof. {prof_nome} ({recurso})", icon=":material/block:"):
                         st.write(f"**Data:** {dt} | **Horário/Obs:** {hr_obs} | **Quantidade:** {qtd}")
-                        if st.button("Receber De volta / Finalizar Uso", key=f"baixa_res_{res_id}", icon = ":material/arrow_downward:"):
+                        if st.button("Receber De volta / Finalizar Uso", key=f"baixa_res_{res_id}", icon=":material/arrow_downward:"):
                             cursor.execute("UPDATE Solicitacao SET status_atual = 'Devolvido / Finalizado' WHERE id_solicitacao = ?", (res_id,))
                             conn.commit()
+                            conn.close()
+                            salvar_bd_no_github()
                             st.success(f"Uso de **{recurso}** finalizado com sucesso!")
                             st.rerun()
             else:
@@ -751,7 +775,7 @@ def sistema_principal():
             st.divider()
 
             # Subseção: Gestão Completa de Estoque (Insumos e Equipamentos)
-            st.subheader("Estoque de Insumos e Equipamentos", icon = ":material/box:")
+            st.subheader("Estoque de Insumos e Equipamentos", icon=":material/box:")
             df_insumos = pd.read_sql_query("""
                 SELECT id_insumo AS 'Código', nome AS 'Item', tipo AS 'Tipo/Categoria', 
                        CAST(qtd_estoque AS INT) AS 'Qtd Atual', CAST(estoque_minimo AS INT) AS 'Qtd Mínima', 
@@ -763,7 +787,7 @@ def sistema_principal():
             col_ins1, col_ins2, col_ins3 = st.columns(3)
             
             with col_ins1:
-                with st.expander("Adicionar/Repor Estoque", icon = ":material/add:"):
+                with st.expander("Adicionar/Repor Estoque", icon=":material/add:"):
                     cursor.execute("SELECT id_insumo, nome FROM Insumo")
                     lista_ins = cursor.fetchall()
                     if lista_ins:
@@ -777,10 +801,12 @@ def sistema_principal():
                             cursor.execute("INSERT INTO Mov_Estoque (Usuario_id_usuario, Insumo_id_insumo, tipo_movimentacao, qtd, data_movimentacao, observacao) VALUES (?, ?, ?, ?, ?, ?)",
                                            (st.session_state.usuario_id, id_sel, "ENTRADA", int(qtd_add), datetime.now(), "Entrada de material"))
                             conn.commit()
+                            conn.close()
+                            salvar_bd_no_github()
                             st.success(f"Adicionadas {qtd_add} unidades de {item_sel}!")
                             st.rerun()
 
-                with st.expander("Retirar / Dar Baixa (Danificado/Perdido)", icon = ":material/remove:"):
+                with st.expander("Retirar / Dar Baixa (Danificado/Perdido)", icon=":material/remove:"):
                     cursor.execute("SELECT id_insumo, nome, CAST(qtd_estoque AS INT) FROM Insumo")
                     lista_ins_sub = cursor.fetchall()
                     if lista_ins_sub:
@@ -796,11 +822,13 @@ def sistema_principal():
                             cursor.execute("INSERT INTO Mov_Estoque (Usuario_id_usuario, Insumo_id_insumo, tipo_movimentacao, qtd, data_movimentacao, observacao) VALUES (?, ?, ?, ?, ?, ?)",
                                            (st.session_state.usuario_id, id_ins, "SAIDA", int(qtd_sub), datetime.now(), motivo_baixa if motivo_baixa else "Baixa efetuada"))
                             conn.commit()
+                            conn.close()
+                            salvar_bd_no_github()
                             st.warning(f"Retiradas {qtd_sub} unidade(s) de {desc_ins}!")
                             st.rerun()
 
             with col_ins2:
-                with st.expander("Cadastrar Novo Item/Equipamento", icon = ":material/add_circle:"):
+                with st.expander("Cadastrar Novo Item/Equipamento", icon=":material/add_circle:"):
                     novo_nome = st.text_input("Nome do Item:")
                     novo_tipo = st.selectbox("Categoria:", ["Papelaria", "Suprimento", "Equipamento Tecnológico", "Equipamento de Educação Física"])
                     nova_qtd = st.number_input("Quantidade Inicial:", min_value=0, value=10, step=1)
@@ -812,20 +840,24 @@ def sistema_principal():
                             cursor.execute("INSERT INTO Insumo (nome, tipo, unidade_media, qtd_estoque, estoque_minimo) VALUES (?, ?, ?, ?, ?)", 
                                            (novo_nome, novo_tipo, nova_un, int(nova_qtd), int(nova_qtd_min)))
                             conn.commit()
+                            conn.close()
+                            salvar_bd_no_github()
                             st.success(f"Item **{novo_nome}** cadastrado!")
                             st.rerun()
 
             with col_ins3:
-                with st.expander("Excluir Item Permanentemente", icon = ":material/delete:"):
+                with st.expander("Excluir Item Permanentemente", icon=":material/delete:"):
                     cursor.execute("SELECT id_insumo, nome FROM Insumo")
                     insumos_para_remover = cursor.fetchall()
                     if insumos_para_remover:
                         dict_rem_ins = {nome: id_i for id_i, nome in insumos_para_remover}
                         item_rem = st.selectbox("Selecione para Remover:", list(dict_rem_ins.keys()), key="del_ins_sel")
                         
-                        if st.button("Confirmar Exclusão Definitiva", type="primary", icon = ":material/remove:"):
+                        if st.button("Confirmar Exclusão Definitiva", type="primary", icon=":material/remove:"):
                             cursor.execute("DELETE FROM Insumo WHERE id_insumo = ?", (dict_rem_ins[item_rem],))
                             conn.commit()
+                            conn.close()
+                            salvar_bd_no_github()
                             st.warning(f"Item **{item_rem}** removido permanentemente!")
                             st.rerun()
 
