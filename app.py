@@ -462,11 +462,9 @@ def sistema_principal():
             qtd_reservada = 1
 
         observacao = st.text_area("Observações / Finalidade Pedagógica:", key="v_obs_txt")
-
+    
         if st.button("Confirmar Reserva", type="primary", use_container_width=True, key="v_btn_reserva"):
-            if tem_erro_horario:
-                st.error("Formato de horário inválido. Utilize o formato HH:MM (ex: 07:30).")
-            elif h_ini_obj >= h_fim_obj:
+            if h_ini_obj >= h_fim_obj:
                 st.error("O horário de término deve ser posterior ao horário de início.")
             elif tipo_reserva != "Laboratório" and disp_real <= 0:
                 st.error("Quantidade indisponível para reserva neste horário.")
