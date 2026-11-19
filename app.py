@@ -480,7 +480,7 @@ def sistema_principal():
             df_usuarios = pd.read_sql_query("SELECT id_usuario AS 'ID', nome AS 'Nome Completo', email AS 'E-mail', telefone AS 'Telefone', tipo_usuario AS 'Nível de Acesso' FROM Usuario", conn)
             st.dataframe(df_usuarios, use_container_width=True)
 
-            col_u1, col_u2 = st.columns(2)
+            col_u1, col_u2, col_u3 = st.columns(3)
             with col_u1:
                 with st.expander("Adicionar Novo Usuário", icon=":material/add:"):
                     with st.form("form_novo_usuario", clear_on_submit=True):
@@ -526,8 +526,8 @@ def sistema_principal():
                                 salvar_bd_no_github()
                                 st.warning("Usuário foi removido do sistema com sucesso.")
                                 st.rerun()
-
-            if "abrir_trocar_senha" not in st.session_state:
+            with col_u3:
+                if "abrir_trocar_senha" not in st.session_state:
                 st.session_state.abrir_trocar_senha = False
 
             if st.button("Mudar senha de usuário", icon=":material/key:"):
