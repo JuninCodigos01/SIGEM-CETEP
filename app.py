@@ -528,8 +528,8 @@ def sistema_principal():
                                 st.rerun()
             with col_u3:
                 if "abrir_trocar_senha" not in st.session_state:
-                st.session_state.abrir_trocar_senha = False
-
+                    st.session_state.abrir_trocar_senha = False
+                
             if st.button("Mudar senha de usuário", icon=":material/key:"):
                 st.session_state.abrir_trocar_senha = not st.session_state.abrir_trocar_senha
 
