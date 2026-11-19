@@ -544,7 +544,7 @@ def sistema_principal():
                         f"{u[1]} ({u[2]}) - [{u[3]}]": u
                         for u in usuarios_senha
                    }
-                   usr_escolhido_label = st.selectbox(
+                                   usr_escolhido_label = st.selectbox(
                     "Selecione o usuário:",
                     list(mapa_usr_senha.keys()),
                     key="sel_usr_trocar_senha"
