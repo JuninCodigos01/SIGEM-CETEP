@@ -539,18 +539,18 @@ def sistema_principal():
                     cursor.execute("SELECT id_usuario, nome, email, tipo_usuario, senha FROM Usuario ORDER BY nome")
                     usuarios_senha = cursor.fetchall()
 
-                    if usuarios_senha:
-                        mapa_usr_senha = {
+                                if usuarios_senha:
+                    mapa_usr_senha = {
                         f"{u[1]} ({u[2]}) - [{u[3]}]": u
                         for u in usuarios_senha
-                   }
-                                   usr_escolhido_label = st.selectbox(
-                    "Selecione o usuário:",
-                    list(mapa_usr_senha.keys()),
-                    key="sel_usr_trocar_senha"
-                )
-                id_usr_sel, nome_usr_sel, _, _, senha_atual_usr = mapa_usr_senha[usr_escolhido_label]
-
+                    }
+                    usr_escolhido_label = st.selectbox(
+                        "Selecione o usuário:",
+                        list(mapa_usr_senha.keys()),
+                        key="sel_usr_trocar_senha"
+                    )
+                    id_usr_sel, nome_usr_sel, _, _, senha_atual_usr = mapa_usr_senha[usr_escolhido_label]
+                    
                 # Texto pequeno mostrando a senha atual do usuário selecionado
                 senha_exibicao = senha_atual_usr if senha_atual_usr else "(Sem senha cadastrada)"
                 st.caption(f"Senha atual de {nome_usr_sel}: `{senha_exibicao}`")
