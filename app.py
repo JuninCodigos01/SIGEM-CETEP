@@ -540,9 +540,9 @@ def sistema_principal():
                     usuarios_senha = cursor.fetchall()
 
                     if usuarios_senha:
-                    mapa_usr_senha = {
-                    f"{u[1]} ({u[2]}) - [{u[3]}]": u
-                    for u in usuarios_senha
+                        mapa_usr_senha = {
+                        f"{u[1]} ({u[2]}) - [{u[3]}]": u
+                        for u in usuarios_senha
                    }
                    usr_escolhido_label = st.selectbox(
                     "Selecione o usuário:",
