@@ -527,9 +527,9 @@ def sistema_principal():
                                 st.warning("Usuário foi removido do sistema com sucesso.")
                                 st.rerun()
             with col_u3:
-                with st.expander("Mudar Senha de Usuário", icon=":material/key:"):
-                    cursor.execute("SELECT id_usuario, nome, email, tipo_usuario, senha FROM Usuario ORDER BY nome")
-                    usuarios_senha = cursor.fetchall()
+               with st.expander("Mudar Senha de Usuário", icon=":material/key:"):
+                   cursor.execute("SELECT id_usuario, nome, email, tipo_usuario, senha FROM Usuario ORDER BY nome")
+                   usuarios_senha = cursor.fetchall()
 
                 if usuarios_senha:
                     mapa_usr_senha = {
