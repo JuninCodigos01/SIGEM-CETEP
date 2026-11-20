@@ -526,6 +526,7 @@ def sistema_principal():
                                 salvar_bd_no_github()
                                 st.warning("Usuário foi removido do sistema com sucesso.")
                                 st.rerun()
+                                
             with col_u3:
                with st.expander("Mudar Senha de Usuário", icon=":material/key:"):
                    cursor.execute("SELECT id_usuario, nome, email, tipo_usuario, senha FROM Usuario ORDER BY nome")
