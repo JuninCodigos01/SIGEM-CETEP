@@ -535,62 +535,36 @@ def sistema_principal():
                         mapa_usr_senha = {
                             f"{u[1]} ({u[2]}) - [{u[3]}]": u
                             for u in usuarios_senha
-                            }
-                    usr_escolhido_label = st.selectbox(
-                        "Selecione o usuário:",
-                        list(mapa_usr_senha.keys()),
-                        key="sel_usr_trocar_senha"
-                    )
-                    id_usr_sel, nome_usr_sel, _, _, senha_atual_usr = mapa_usr_senha[usr_escolhido_label]
+                        }
+                        usr_escolhido_label = st.selectbox(
+                            "Selecione o usuário:",
+                            list(mapa_usr_senha.keys()),
+                            key="sel_usr_trocar_senha"
+                        )
+                        id_usr_sel, nome_usr_sel, _, _, senha_atual_usr = mapa_usr_senha[usr_escolhido_label]
 
-                    senha_exibicao = senha_atual_usr if senha_atual_usr else "(Sem senha cadastrada)"
-                    st.caption(f"Senha atual de {nome_usr_sel}: `{senha_exibicao}`")
-                    nova_senha_usr = st.text_input(
-                        "Nova senha:",
-                        type="password",
-                        key="input_nova_senha_usr"
-                    )
-                    if st.button("Mudar senha de usuário", type="primary", icon=":material/key:", key="btn_confirmar_nova_senha"):
-                        if not nova_senha_usr.strip():
-                            st.warning("Digite a nova senha antes de confirmar.")
-                        else:
-                            cursor.execute(
-                                "UPDATE Usuario SET senha = ? WHERE id_usuario = ?",
-                                (nova_senha_usr.strip(), id_usr_sel)
-                            )
-                            conn.commit()
-                            salvar_bd_no_github()
-                            st.success(f"Senha de **{nome_usr_sel}** alterada com sucesso!", icon=":material/check:")
-                            st.rerun()
+                        senha_exibicao = senha_atual_usr if senha_atual_usr else "(Sem senha cadastrada)"
+                        st.caption(f"Senha atual de {nome_usr_sel}: `{senha_exibicao}`")
+                        nova_senha_usr = st.text_input(
+                            "Nova senha:",
+                            type="password",
+                            key="input_nova_senha_usr"
+                        )
+                        if st.button("Mudar senha de usuário", type="primary", icon=":material/key:", key="btn_confirmar_nova_senha"):
+                            if not nova_senha_usr.strip():
+                                st.warning("Digite a nova senha antes de confirmar.")
+                            else:
+                                cursor.execute(
+                                    "UPDATE Usuario SET senha = ? WHERE id_usuario = ?",
+                                    (nova_senha_usr.strip(), id_usr_sel)
+                                )
+                                conn.commit()
+                                salvar_bd_no_github()
+                                st.success(f"Senha de **{nome_usr_sel}** alterada com sucesso!", icon=":material/check:")
+                                st.rerun()
                     else:
-                    st.info("Nenhum usuário cadastrado.")
-
-            st.divider()
-            st.subheader("Fila de Reservas Pendentes", icon=":material/calendar_month:")
-            cursor.execute("SELECT S.id_solicitacao, U.nome, S.acabamento, CAST(S.qtd AS INT), S.data_solicitacao, S.observacao FROM Solicitacao S LEFT JOIN Usuario U ON S.Usuario_id_usuario = U.id_usuario WHERE S.tipo_origem != 'Impressão' AND S.status_atual = 'Pendente'")
-            reservas_pendentes = cursor.fetchall()
-            if reservas_pendentes:
-                for item in reservas_pendentes:
-                    res_id, prof_nome, recurso, qtd, dt, hr_obs = item
-                    with st.expander(f"Reserva #{res_id} - Professor: {prof_nome} - Recurso: {recurso}"):
-                        st.write(f"**Data:** {dt} | **Detalhes:** {hr_obs} | **Qtd:** {qtd}")
-                        col_ap, col_rec = st.columns(2)
-                        if col_ap.button("Aprovar Reserva", key=f"ap_res_{res_id}", icon=":material/check:"):
-                            cursor.execute("UPDATE Solicitacao SET status_atual = 'Aprovada' WHERE id_solicitacao = ?", (res_id,))
-                            conn.commit()
-                            conn.close()
-                            salvar_bd_no_github()
-                            st.success("Reserva aprovada!")
-                            st.rerun()
-                        if col_rec.button("Recusar Reserva", key=f"rec_res_{res_id}", icon=":material/close:"):
-                            cursor.execute("UPDATE Solicitacao SET status_atual = 'Recusada' WHERE id_solicitacao = ?", (res_id,))
-                            conn.commit()
-                            conn.close()
-                            salvar_bd_no_github()
-                            st.rerun()
-            else:
-                st.info("Nenhuma reserva pendente.")
-
+                        st.info("Nenhum usuário cadastrado.")
+                        
             st.divider()
             st.subheader("Recursos/Laboratórios Atualmente em Uso (Aprovados)", icon=":material/cached:")
             cursor.execute("SELECT S.id_solicitacao, U.nome, S.acabamento, CAST(S.qtd AS INT), S.data_solicitacao, S.observacao FROM Solicitacao S LEFT JOIN Usuario U ON S.Usuario_id_usuario = U.id_usuario WHERE S.status_atual = 'Aprovada' AND S.tipo_origem != 'Impressão'")
