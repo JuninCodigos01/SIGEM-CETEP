@@ -603,8 +603,8 @@ def sistema_principal():
                             salvar_bd_no_github()
                             st.success(f"Dados de **{novo_nome_usr.strip()}** atualizados com sucesso!", icon=":material/check:")
                             st.rerun()
-                else:
-                    st.info("Nenhum usuário cadastrado.")
+                    else:
+                        st.info("Nenhum usuário cadastrado.")
                         
             st.divider()
             st.subheader("Recursos/Laboratórios Atualmente em Uso (Aprovados)", icon=":material/cached:")
