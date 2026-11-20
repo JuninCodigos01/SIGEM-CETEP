@@ -535,11 +535,14 @@ def sistema_principal():
                 with st.expander("Editar Usuário e Senha", icon=":material/manage_accounts:"):
                     conn.row_factory = sqlite3.Row
                     usuarios_dados = conn.execute("SELECT * FROM Usuario ORDER BY nome").fetchall()
-                    if usuarios_dados:
-                        opcoes = {
-                            f"{u['nome']} ({u['email'] or 'sem e-mail'}) - [{u['tipo_usuario'] or 'Sem perfil'}]": u
-                            for u in usuarios_dados
-                        }
+
+                if not usuarios_dados:
+                    st.info("Nenhum usuário cadastrado.")
+                else:
+                    opcoes = {
+                        f"{u['nome']} ({u['email'] or 'sem e-mail'}) - [{u['tipo_usuario'] or 'Sem perfil'}]": u
+                        for u in usuarios_dados
+                    }
                     sel = st.selectbox("Selecione o usuário:", list(opcoes.keys()), key="sel_usr_editar")
                     u = opcoes[sel]
                     uid = u["id_usuario"]
@@ -573,8 +576,6 @@ def sistema_principal():
                             salvar_bd_no_github()
                             st.success(f"Dados de **{nome.strip()}** atualizados!", icon=":material/check:")
                             st.rerun()
-                else:
-                    st.info("Nenhum usuário cadastrado.")
                     
             st.divider()
             st.subheader("Recursos/Laboratórios Atualmente em Uso (Aprovados)", icon=":material/cached:")
