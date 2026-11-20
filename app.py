@@ -535,47 +535,46 @@ def sistema_principal():
                 with st.expander("Editar Usuário e Senha", icon=":material/manage_accounts:"):
                     conn.row_factory = sqlite3.Row
                     usuarios_dados = conn.execute("SELECT * FROM Usuario ORDER BY nome").fetchall()
+                    if not usuarios_dados:
+                        st.info("Nenhum usuário cadastrado.")
+                    else:
+                        opcoes = {
+                            f"{u['nome']} ({u['email'] or 'sem e-mail'}) - [{u['tipo_usuario'] or 'Sem perfil'}]": u
+                            for u in usuarios_dados
+                        }
+                        sel = st.selectbox("Selecione o usuário:", list(opcoes.keys()), key="sel_usr_editar")
+                        u = opcoes[sel]
+                        uid = u["id_usuario"]
 
-                if not usuarios_dados:
-                    st.info("Nenhum usuário cadastrado.")
-                else:
-                    opcoes = {
-                        f"{u['nome']} ({u['email'] or 'sem e-mail'}) - [{u['tipo_usuario'] or 'Sem perfil'}]": u
-                        for u in usuarios_dados
-                    }
-                    sel = st.selectbox("Selecione o usuário:", list(opcoes.keys()), key="sel_usr_editar")
-                    u = opcoes[sel]
-                    uid = u["id_usuario"]
+                        st.caption(f"Senha atual de {u['nome']}: `{u['senha'] or '(Sem senha cadastrada)'}`")
 
-                    st.caption(f"Senha atual de {u['nome']}: `{u['senha'] or '(Sem senha cadastrada)'}`")
+                        nome = st.text_input("Nome:", value=u["nome"] or "", key=f"ed_nome_{uid}")
+                        email = st.text_input("E-mail:", value=u["email"] or "", key=f"ed_email_{uid}")
+                        tel = st.text_input("Telefone:", value=u["telefone"] or "", key=f"ed_tel_{uid}")
 
-                    nome = st.text_input("Nome:", value=u["nome"] or "", key=f"ed_nome_{uid}")
-                    email = st.text_input("E-mail:", value=u["email"] or "", key=f"ed_email_{uid}")
-                    tel = st.text_input("Telefone:", value=u["telefone"] or "", key=f"ed_tel_{uid}")
+                        niveis = ["Professor", "Coordenação", "Administrador"]
+                        tipo_atual = u["tipo_usuario"] if u["tipo_usuario"] in niveis else "Professor"
+                        tipo = st.selectbox("Nível de Acesso:", niveis, index=niveis.index(tipo_atual), key=f"ed_tipo_{uid}")
 
-                    niveis = ["Professor", "Coordenação", "Administrador"]
-                    tipo_atual = u["tipo_usuario"] if u["tipo_usuario"] in niveis else "Professor"
-                    tipo = st.selectbox("Nível de Acesso:", niveis, index=niveis.index(tipo_atual), key=f"ed_tipo_{uid}")
+                        nova_senha = st.text_input("Nova senha (deixe em branco para manter):", type="password", key=f"ed_senha_{uid}")
 
-                    nova_senha = st.text_input("Nova senha (deixe em branco para manter):", type="password", key=f"ed_senha_{uid}")
-
-                    if st.button("Salvar alterações", type="primary", icon=":material/save:", key="btn_salvar_edicao_usr"):
-                        if not nome.strip():
-                            st.warning("O nome não pode ficar vazio.")
-                        else:
-                            senha_final = nova_senha.strip() or u["senha"]
-                            conn.execute(
-                                """
-                                UPDATE Usuario
-                                SET nome = ?, email = ?, telefone = ?, tipo_usuario = ?, senha = ?
-                                WHERE id_usuario = ?
-                                """,
-                                (nome.strip(), email.strip(), tel.strip(), tipo, senha_final, uid)
-                            )
-                            conn.commit()
-                            salvar_bd_no_github()
-                            st.success(f"Dados de **{nome.strip()}** atualizados!", icon=":material/check:")
-                            st.rerun()
+                        if st.button("Salvar alterações", type="primary", icon=":material/save:", key="btn_salvar_edicao_usr"):
+                            if not nome.strip():
+                                st.warning("O nome não pode ficar vazio.")
+                            else:
+                                senha_final = nova_senha.strip() or u["senha"]
+                                conn.execute(
+                                    """
+                                    UPDATE Usuario
+                                    SET nome = ?, email = ?, telefone = ?, tipo_usuario = ?, senha = ?
+                                    WHERE id_usuario = ?
+                                    """,
+                                    (nome.strip(), email.strip(), tel.strip(), tipo, senha_final, uid)
+                                )   
+                                conn.commit()
+                                salvar_bd_no_github()
+                                st.success(f"Dados de **{nome.strip()}** atualizados!", icon=":material/check:")
+                                st.rerun()
                     
             st.divider()
             st.subheader("Recursos/Laboratórios Atualmente em Uso (Aprovados)", icon=":material/cached:")
