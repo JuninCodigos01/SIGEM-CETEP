@@ -577,6 +577,109 @@ def sistema_principal():
                                 st.rerun()
                     
             st.divider()
+            cursor.execute("SELECT nome, CAST(qtd_estoque AS INT), CAST(estoque_minimo AS INT), unidade_media FROM Insumo WHERE qtd_estoque <= estoque_minimo")
+            for item in cursor.fetchall():
+                st.warning(f"**Insumo Crítico:** {item[0]} | Atual: {item[1]} {item[3]} (Mínimo: {item[2]} {item[3]})", icon=":material/warning:")
+
+            # Subseção: Fila de Impressão Pendente e em Andamento
+            st.subheader("Fila de Impressão e Processamento", icon=":material/print:")
+            cursor.execute("""
+                SELECT S.id_solicitacao, U.nome, CAST(S.qtd AS INT), S.tipo_impressao, S.data_solicitacao, S.observacao, A.nome_arquivo, A.local_arquivo, S.status_atual
+                FROM Solicitacao S
+                LEFT JOIN Usuario U ON S.Usuario_id_usuario = U.id_usuario
+                LEFT JOIN Arquivo A ON S.Arquivo_id_arquivo = A.id_arquivo
+                WHERE S.tipo_origem = 'Impressão' AND S.status_atual IN ('Pendente', 'Em Impressão')
+                ORDER BY S.id_solicitacao ASC
+            """)
+            impressoes_fila = cursor.fetchall()
+            
+            if impressoes_fila:
+                for item in impressoes_fila:
+                    imp_id, prof_nome, copias, cor, dt_nec, obs, nome_arq, dados_blob, status_atual = item
+                    
+                    status_emoji = "⏳" if status_atual == "Pendente" else "🖨️"
+                    
+                    with st.expander(f"{status_emoji} Impressão #{imp_id} [{status_atual}] - {prof_nome} - {copias} cópias ({cor})"):
+                        st.write(f"**Arquivo:** {nome_arq}")
+                        st.write(f"**Para:** {dt_nec} | **Obs:** {obs}")
+                        st.write(f"**Status Atual:** `{status_atual}`")
+                        
+                        if dados_blob:
+                            st.download_button(
+                                label=f"Baixar Arquivo ({nome_arq})",
+                                data=dados_blob,
+                                file_name=nome_arq,
+                                key=f"dl_imp_{imp_id}",
+                                icon=":material/download:"
+                            )
+                        
+                        st.divider()
+                        
+                        col1, col2, col3 = st.columns(3)
+                        
+                        if status_atual == "Pendente":
+                            if col1.button("Iniciar Impressão", key=f"proc_imp_{imp_id}", icon=":material/start:"):
+                                cursor.execute("UPDATE Solicitacao SET status_atual = 'Em Impressão' WHERE id_solicitacao = ?", (imp_id,))
+                                conn.commit()
+                                conn.close()
+                                salvar_bd_no_github()
+                                st.rerun()
+
+                        if col2.button("Concluir e Dar Baixa", key=f"ap_imp_{imp_id}", icon=":material/check:"):
+                            cursor.execute("UPDATE Solicitacao SET status_atual = 'Aprovada / Concluída' WHERE id_solicitacao = ?", (imp_id,))
+                            cursor.execute("UPDATE Insumo SET qtd_estoque = MAX(0, qtd_estoque - ?) WHERE nome LIKE '%Papel A4%'", (copias,))
+                            conn.commit()
+                            conn.close()
+                            salvar_bd_no_github()
+                            st.success("Impressão finalizada e estoque atualizado!")
+                            st.rerun()
+                                
+                        if col3.button("Recusar", key=f"rec_imp_{imp_id}", icon=":material/close:"):
+                            cursor.execute("UPDATE Solicitacao SET status_atual = 'Recusada' WHERE id_solicitacao = ?", (imp_id,))
+                            conn.commit()
+                            conn.close()
+                            salvar_bd_no_github()
+                            st.rerun()
+            else:
+                st.info("Nenhuma solicitação de impressão pendente ou em processo.")
+
+            st.divider()
+
+            # Subseção: Fila de Reservas de Espaço/Equipamento Pendentes
+            st.subheader("Fila de Reservas Pendentes", icon=":material/calendar_month:")
+            cursor.execute("""
+                SELECT S.id_solicitacao, U.nome, S.acabamento, CAST(S.qtd AS INT), S.data_solicitacao, S.observacao 
+                FROM Solicitacao S
+                LEFT JOIN Usuario U ON S.Usuario_id_usuario = U.id_usuario
+                WHERE S.tipo_origem != 'Impressão' AND S.status_atual = 'Pendente'
+            """)
+            reservas_pendentes = cursor.fetchall()
+            
+            if reservas_pendentes:
+                for item in reservas_pendentes:
+                    res_id, prof_nome, recurso, qtd, dt, hr_obs = item
+                    with st.expander(f"Reserva #{res_id} - Professor: {prof_nome} - Recurso: {recurso}"):
+                        st.write(f"**Data:** {dt} | **Detalhes:** {hr_obs} | **Qtd:** {qtd}")
+                        col_ap, col_rec = st.columns(2)
+                        
+                        if col_ap.button("Aprovar Reserva", key=f"ap_res_{res_id}", icon=":material/check:"):
+                            cursor.execute("UPDATE Solicitacao SET status_atual = 'Aprovada' WHERE id_solicitacao = ?", (res_id,))
+                            conn.commit()
+                            conn.close()
+                            salvar_bd_no_github()
+                            st.success("Reserva aprovada!")
+                            st.rerun()
+                            
+                        if col_rec.button("Recusar Reserva", key=f"rec_res_{res_id}", icon=":material/close:"):
+                            cursor.execute("UPDATE Solicitacao SET status_atual = 'Recusada' WHERE id_solicitacao = ?", (res_id,))
+                            conn.commit()
+                            conn.close()
+                            salvar_bd_no_github()
+                            st.rerun()
+            else:
+                st.info("Nenhuma reserva pendente.")
+
+            st.divider()
             st.subheader("Recursos/Laboratórios Atualmente em Uso (Aprovados)", icon=":material/cached:")
             cursor.execute("SELECT S.id_solicitacao, U.nome, S.acabamento, CAST(S.qtd AS INT), S.data_solicitacao, S.observacao FROM Solicitacao S LEFT JOIN Usuario U ON S.Usuario_id_usuario = U.id_usuario WHERE S.status_atual = 'Aprovada' AND S.tipo_origem != 'Impressão'")
             reservas_em_uso = cursor.fetchall()
