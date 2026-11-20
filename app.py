@@ -745,7 +745,7 @@ def sistema_principal():
                     novo_nome = st.text_input("Nome do Item:")
                     novo_tipo = st.selectbox("Categoria:", ["Papelaria", "Suprimento", "Equipamento Tecnológico", "Equipamento de Educação Física"])
                     nova_qtd = st.number_input("Quantidade Inicial:", min_value=0, value=10, step=1)
-                    nova_qtd_min = st.number_input("Mínimo de Alerta:", min_value=1, value=2, step=1)
+                    nova_qtd_min = st.number_input("Mínimo de Alerta:", min_value=0, value=0, step=1)
                     nova_un = st.text_input("Unidade:", value="Unidades")
                     if st.button("Cadastrar Item"):
                         if novo_nome:
