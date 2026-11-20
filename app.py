@@ -528,8 +528,8 @@ def sistema_principal():
                                 st.rerun()
             with col_u3:
                 with st.expander("Mudar Senha de Usuário", icon=":material/key:"):
-                cursor.execute("SELECT id_usuario, nome, email, tipo_usuario, senha FROM Usuario ORDER BY nome")
-                usuarios_senha = cursor.fetchall()
+                    cursor.execute("SELECT id_usuario, nome, email, tipo_usuario, senha FROM Usuario ORDER BY nome")
+                    usuarios_senha = cursor.fetchall()
 
                 if usuarios_senha:
                     mapa_usr_senha = {
