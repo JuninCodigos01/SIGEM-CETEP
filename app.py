@@ -362,7 +362,11 @@ def sistema_principal():
                 "Laboratório de Manutenção de Computadores",
                 "Laboratório de Robótica",
                 "Auditório",
-                "Laboratório de Edificações"
+                "Laboratório de Edificações",
+                "Laboratório SUPROT",
+                "Laboratório de Desenho Técnico",
+                "Laboratório de Topografia",
+                "Laboratório de Construção Cívil"
             ], 
             key="v_lab_item"
         )
@@ -528,42 +532,79 @@ def sistema_principal():
                                 st.rerun()
                                 
             with col_u3:
-                with st.expander("Mudar Senha de Usuário", icon=":material/key:"):
+                with st.expander("Editar Usuário e Senha", icon=":material/manage_accounts:"):
                     cursor.execute("SELECT id_usuario, nome, email, tipo_usuario, senha FROM Usuario ORDER BY nome")
-                    usuarios_senha = cursor.fetchall()
-                    if usuarios_senha:
-                        mapa_usr_senha = {
-                            f"{u[1]} ({u[2]}) - [{u[3]}]": u
-                            for u in usuarios_senha
+                    usuarios_dados = cursor.fetchall()
+                    if usuarios_dados:
+                        mapa_usr_dados = {
+                            f"{u[1]} ({u[2] or 'sem e-mail'}) - [{u[4]}]": u
+                            for u in usuarios_dados
                         }
                         usr_escolhido_label = st.selectbox(
                             "Selecione o usuário:",
-                            list(mapa_usr_senha.keys()),
-                            key="sel_usr_trocar_senha"
+                            list(mapa_usr_dados.keys()),
+                            key="sel_usr_editar"
                         )
-                        id_usr_sel, nome_usr_sel, _, _, senha_atual_usr = mapa_usr_senha[usr_escolhido_label]
+                        id_usr_sel, nome_atual, email_atual, tel_atual, tipo_atual, senha_atual_usr = mapa_usr_dados[usr_escolhido_label]
 
                         senha_exibicao = senha_atual_usr if senha_atual_usr else "(Sem senha cadastrada)"
                         st.caption(f"Senha atual de {nome_usr_sel}: `{senha_exibicao}`")
-                        nova_senha_usr = st.text_input(
-                            "Nova senha:",
-                            type="password",
-                            key="input_nova_senha_usr"
+                        
+                        novo_nome_usr = st.text_input(
+                            "Nome:",
+                            value=nome_atual or ""
+                            key=f"edit_nome_{id_usr_sel}"
                         )
-                        if st.button("Mudar senha de usuário", type="primary", icon=":material/key:", key="btn_confirmar_nova_senha"):
-                            if not nova_senha_usr.strip():
-                                st.warning("Digite a nova senha antes de confirmar.")
-                            else:
-                                cursor.execute(
-                                    "UPDATE Usuario SET senha = ? WHERE id_usuario = ?",
-                                    (nova_senha_usr.strip(), id_usr_sel)
+                        novo_email_usr = st.text_input(
+                            "E-mail:",
+                            value=email_atual or "",
+                            key=f"edit_email_{id_usr_sel}"
+                        )
+                        novo_tel_usr = st.text_input(
+                            "Telefone:",
+                            value=tel_atual or "",
+                            key=f"edit_tel_{id_usr_sel}"
+                        )
+                        niveis_opcoes = ["Professor", "Coordenação", "Administrador"]
+                        idx_tipo = niveis_opcoes.index(tipo_atual) if tipo_atual in niveis_opcoes else 0
+                        novo_tipo_usr = st.selectbox(
+                            "Nível de Acesso:",
+                            niveis_opcoes,
+                            index=idx_tipo,
+                            key=f"edit_tipo_{id_usr_sel}"
+                        )
+                        nova_senha_usr = st.text_input(
+                            "Nova senha (deixe em branco para manter a atual):",
+                            type="password",
+                            key=f"edit_senha_{id_usr_sel}"
+                    )
+
+                    if st.button("Salvar alterações", type="primary", icon=":material/save:", key="btn_salvar_edicao_usr"):
+                        if not novo_nome_usr.strip():
+                            st.warning("O nome do usuário não pode ficar vazio.")
+                        else:
+                            senha_final = nova_senha_usr.strip() if nova_senha_usr.strip() else senha_atual_usr
+                            cursor.execute(
+                                """
+                                UPDATE Usuario
+                                SET nome = ?, email = ?, telefone = ?, tipo_usuario = ?, senha = ?
+                                WHERE id_usuario = ?
+                                """,
+                                (
+                                    novo_nome_usr.strip(),
+                                    novo_email_usr.strip(),
+                                    novo_tel_usr.strip(),
+                                    novo_tipo_usr,
+                                    senha_final,
+                                    id_usr_sel,
                                 )
-                                conn.commit()
-                                salvar_bd_no_github()
-                                st.success(f"Senha de **{nome_usr_sel}** alterada com sucesso!", icon=":material/check:")
-                                st.rerun()
-                    else:
-                        st.info("Nenhum usuário cadastrado.")
+                            )
+                            conn.commit()
+                            salvar_bd_no_github()
+                            st.success(f"Dados de **{novo_nome_usr.strip()}** atualizados com sucesso!", icon=":material/check:")
+                            st.rerun()
+                else:
+                    st.info("Nenhum usuário cadastrado.")
                         
             st.divider()
             st.subheader("Recursos/Laboratórios Atualmente em Uso (Aprovados)", icon=":material/cached:")
