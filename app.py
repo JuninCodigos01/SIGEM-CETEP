@@ -535,12 +535,11 @@ def sistema_principal():
                 with st.expander("Editar Usuário e Senha", icon=":material/manage_accounts:"):
                     conn.row_factory = sqlite3.Row
                     usuarios_dados = conn.execute("SELECT * FROM Usuario ORDER BY nome").fetchall()
-
-                if usuarios_dados:
-                    opcoes = {
-                        f"{u['nome']} ({u['email'] or 'sem e-mail'}) - [{u['tipo_usuario'] or 'Sem perfil'}]": u
-                        for u in usuarios_dados
-                    }
+                    if usuarios_dados:
+                        opcoes = {
+                            f"{u['nome']} ({u['email'] or 'sem e-mail'}) - [{u['tipo_usuario'] or 'Sem perfil'}]": u
+                            for u in usuarios_dados
+                        }
                     sel = st.selectbox("Selecione o usuário:", list(opcoes.keys()), key="sel_usr_editar")
                     u = opcoes[sel]
                     uid = u["id_usuario"]
