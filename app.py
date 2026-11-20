@@ -554,7 +554,7 @@ def sistema_principal():
                         senha_atual_usr = u[5] if len(u) > 5 else ""
 
                         senha_exibicao = senha_atual_usr if senha_atual_usr else "(Sem senha cadastrada)"
-                        st.caption(f"Senha atual de {nome_usr_sel}: `{senha_exibicao}`")
+                        st.caption(f"Senha atual de {nome_atual}: `{senha_exibicao}`")
                         
                         novo_nome_usr = st.text_input(
                             "Nome:",
