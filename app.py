@@ -562,7 +562,7 @@ def sistema_principal():
                             salvar_bd_no_github()
                             st.success(f"Senha de **{nome_usr_sel}** alterada com sucesso!", icon=":material/check:")
                             st.rerun()
-                else:
+                    else:
                     st.info("Nenhum usuário cadastrado.")
 
             st.divider()
