@@ -545,7 +545,13 @@ def sistema_principal():
                             list(mapa_usr_dados.keys()),
                             key="sel_usr_editar"
                         )
-                        id_usr_sel, nome_atual, email_atual, tel_atual, tipo_atual, senha_atual_usr = mapa_usr_dados[usr_escolhido_label]
+                        u = mapa_usr_dados[usr_escolhido_label]
+                        id_usr_sel = u[0]
+                        nome_atual = u[1] if len(u) > 1 else ""
+                        email_atual = u[2] if len(u) > 2 else ""
+                        tel_atual = u[3] if len(u) > 3 else ""
+                        tipo_atual = u[4] if len(u) > 4 else "Professor"
+                        senha_atual_usr = u[5] if len(u) > 5 else ""
 
                         senha_exibicao = senha_atual_usr if senha_atual_usr else "(Sem senha cadastrada)"
                         st.caption(f"Senha atual de {nome_usr_sel}: `{senha_exibicao}`")
