@@ -552,7 +552,7 @@ def sistema_principal():
                         
                         novo_nome_usr = st.text_input(
                             "Nome:",
-                            value=nome_atual or ""
+                            value=nome_atual or "",
                             key=f"edit_nome_{id_usr_sel}"
                         )
                         novo_email_usr = st.text_input(
