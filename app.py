@@ -531,12 +531,11 @@ def sistema_principal():
                 with st.expander("Mudar Senha de Usuário", icon=":material/key:"):
                     cursor.execute("SELECT id_usuario, nome, email, tipo_usuario, senha FROM Usuario ORDER BY nome")
                     usuarios_senha = cursor.fetchall()
-
-                if usuarios_senha:
-                    mapa_usr_senha = {
-                        f"{u[1]} ({u[2]}) - [{u[3]}]": u
-                        for u in usuarios_senha
-                    }
+                    if usuarios_senha:
+                        mapa_usr_senha = {
+                            f"{u[1]} ({u[2]}) - [{u[3]}]": u
+                            for u in usuarios_senha
+                            }
                     usr_escolhido_label = st.selectbox(
                         "Selecione o usuário:",
                         list(mapa_usr_senha.keys()),
@@ -546,13 +545,11 @@ def sistema_principal():
 
                     senha_exibicao = senha_atual_usr if senha_atual_usr else "(Sem senha cadastrada)"
                     st.caption(f"Senha atual de {nome_usr_sel}: `{senha_exibicao}`")
-
                     nova_senha_usr = st.text_input(
                         "Nova senha:",
                         type="password",
                         key="input_nova_senha_usr"
                     )
-
                     if st.button("Mudar senha de usuário", type="primary", icon=":material/key:", key="btn_confirmar_nova_senha"):
                         if not nova_senha_usr.strip():
                             st.warning("Digite a nova senha antes de confirmar.")
