@@ -527,17 +527,9 @@ def sistema_principal():
                                 st.warning("Usuário foi removido do sistema com sucesso.")
                                 st.rerun()
             with col_u3:
-                if "abrir_trocar_senha" not in st.session_state:
-                    st.session_state.abrir_trocar_senha = False
-                
-            if st.button("Mudar senha de usuário", icon=":material/key:"):
-                st.session_state.abrir_trocar_senha = not st.session_state.abrir_trocar_senha
-
-            if st.session_state.abrir_trocar_senha:
-                with st.container(border=True):
-                    st.markdown("**Alterar Senha de Usuário**")
-                    cursor.execute("SELECT id_usuario, nome, email, tipo_usuario, senha FROM Usuario ORDER BY nome")
-                    usuarios_senha = cursor.fetchall()
+                with st.expander("Mudar Senha de Usuário", icon=":material/key:"):
+                cursor.execute("SELECT id_usuario, nome, email, tipo_usuario, senha FROM Usuario ORDER BY nome")
+                usuarios_senha = cursor.fetchall()
 
                 if usuarios_senha:
                     mapa_usr_senha = {
@@ -550,20 +542,18 @@ def sistema_principal():
                         key="sel_usr_trocar_senha"
                     )
                     id_usr_sel, nome_usr_sel, _, _, senha_atual_usr = mapa_usr_senha[usr_escolhido_label]
-                    
-                # Texto pequeno mostrando a senha atual do usuário selecionado
-                senha_exibicao = senha_atual_usr if senha_atual_usr else "(Sem senha cadastrada)"
-                st.caption(f"Senha atual de {nome_usr_sel}: `{senha_exibicao}`")
 
-                nova_senha_usr = st.text_input(
-                    "Nova senha:",
-                    type="password",
-                    key="input_nova_senha_usr"
-                )
+                    # Texto pequeno mostrando a senha atual do usuário selecionado
+                    senha_exibicao = senha_atual_usr if senha_atual_usr else "(Sem senha cadastrada)"
+                    st.caption(f"Senha atual de {nome_usr_sel}: `{senha_exibicao}`")
 
-                col_btn1, col_btn2 = st.columns(2)
-                with col_btn1:
-                    if st.button("Confirmar nova senha", type="primary", key="btn_confirmar_nova_senha"):
+                    nova_senha_usr = st.text_input(
+                        "Nova senha:",
+                        type="password",
+                        key="input_nova_senha_usr"
+                    )
+
+                    if st.button("Mudar senha de usuário", type="primary", icon=":material/key:", key="btn_confirmar_nova_senha"):
                         if not nova_senha_usr.strip():
                             st.warning("Digite a nova senha antes de confirmar.")
                         else:
@@ -572,19 +562,12 @@ def sistema_principal():
                                 (nova_senha_usr.strip(), id_usr_sel)
                             )
                             conn.commit()
-                            conn.close()
                             salvar_bd_no_github()
-                            st.session_state.abrir_trocar_senha = False
-                            st.success(f"Senha de **{nome_usr_sel}** alterada com sucesso!")
+                            st.success(f"Senha de **{nome_usr_sel}** alterada com sucesso!", icon=":material/check:")
                             st.rerun()
-                with col_btn2:
-                    if st.button("Cancelar", key="btn_cancelar_trocar_senha"):
-                        st.session_state.abrir_trocar_senha = False
-                        st.rerun()
-            else:
-                st.info("Nenhum usuário cadastrado.")
-                
-
+                else:
+                    st.info("Nenhum usuário cadastrado.")
+                    
             st.divider()
             cursor.execute("SELECT nome, CAST(qtd_estoque AS INT), CAST(estoque_minimo AS INT), unidade_media FROM Insumo WHERE qtd_estoque <= estoque_minimo")
             for item in cursor.fetchall():
